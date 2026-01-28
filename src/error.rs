@@ -20,8 +20,8 @@ pub enum AppError {
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let (status, error_message) = match self {
-            AppError::GmailApi(e) => {
+        let (status, error_message) = match &self {
+            AppError::GmailApi(ref e) => {
                 if let Some(reqwest_status) = e.status() {
                     // Convert reqwest::StatusCode (http 0.2) to axum::http::StatusCode (http 1.0)
                     let status_code = StatusCode::from_u16(reqwest_status.as_u16())

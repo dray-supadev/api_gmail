@@ -149,11 +149,22 @@ pub async fn get_message(
         snippet: data["snippet"].as_str().unwrap_or("").to_string(),
         body_text: message.body_text(0).map(|b| b.to_string()),
         body_html: message.body_html(0).map(|b| b.to_string()),
-        attachments: message.attachments().map(|a| AttachmentSummary {
-            filename: a.filename().unwrap_or("unnamed").to_string(),
-            content_type: a.content_type().as_str().to_string(),
-            size: a.contents().len(),
-            id: a.content_id().map(|id| id.to_string()),
+        attachments: message.attachments().map(|a| {
+            let filename = a.attachment_name()
+                .or_else(|| a.content_type().and_then(|ct| ct.attribute("name")))
+                .unwrap_or("unnamed")
+                .to_string();
+            
+            let content_type = a.content_type()
+                .map(|ct| format!("{}/{}", ct.c_type, ct.c_subtype.as_ref().unwrap_or(&"octet-stream".into())))
+                .unwrap_or_else(|| "application/octet-stream".to_string());
+            
+            AttachmentSummary {
+                filename,
+                content_type,
+                size: a.contents().len(),
+                id: a.content_id().map(|id| id.to_string()),
+            }
         }).collect(),
     };
 
