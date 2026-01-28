@@ -22,11 +22,15 @@ impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status, error_message) = match self {
             AppError::GmailApi(e) => {
-                if let Some(status) = e.status() {
-                    if status == StatusCode::UNAUTHORIZED {
+                if let Some(reqwest_status) = e.status() {
+                    // Convert reqwest::StatusCode (http 0.2) to axum::http::StatusCode (http 1.0)
+                    let status_code = StatusCode::from_u16(reqwest_status.as_u16())
+                        .unwrap_or(StatusCode::BAD_GATEWAY);
+                    
+                    if status_code == StatusCode::UNAUTHORIZED {
                         (StatusCode::UNAUTHORIZED, "Invalid or expired Google Token")
                     } else {
-                        (status, "Gmail API returned an error")
+                        (status_code, "Gmail API returned an error")
                     }
                 } else {
                     (StatusCode::BAD_GATEWAY, "Failed to reach Gmail API")

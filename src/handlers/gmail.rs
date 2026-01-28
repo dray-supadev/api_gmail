@@ -1,12 +1,12 @@
 use axum::{
     extract::{Path, Query, Json},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use reqwest::Client;
 use crate::error::AppError;
-use mail_parser::MessageParser;
+use mail_parser::{MessageParser, MimeHeaders};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 
 // --- DTOs ---

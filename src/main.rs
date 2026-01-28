@@ -2,7 +2,6 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use std::net::SocketAddr;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -32,8 +31,10 @@ async fn main() {
         .route("/api/messages/send", post(handlers::gmail::send_message))
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive()) // Customize this for production security
-        .layer(axum::middleware::from_fn(middleware::auth::verify_api_key))
-        .with_state(config);
+        .layer(axum::middleware::from_fn_with_state(
+            config.clone(),
+            middleware::auth::verify_api_key,
+        ));
 
     // Run server
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
