@@ -190,14 +190,12 @@ pub async fn list_messages(
     })))
 }
 
-pub async fn get_message(
-    Path(id): Path<String>,
-    headers: HeaderMap,
-) -> Result<Json<CleanMessage>, AppError> {
-    let token = get_google_token(&headers)?;
-    let client = Client::new();
-
-    // Fetch RAW message (best for parsing fidelity)
+// Helper to fetch and parse a single message fully
+async fn fetch_and_parse_message(
+    client: &Client,
+    token: &str,
+    id: &str,
+) -> Result<CleanMessage, AppError> {
     let url = format!("https://gmail.googleapis.com/gmail/v1/users/me/messages/{}?format=raw", id);
     
     let res = client
@@ -221,7 +219,7 @@ pub async fn get_message(
 
     // Convert to Clean JSON
     let clean = CleanMessage {
-        id,
+        id: id.to_string(),
         subject: message.subject().map(|s| s.to_string()),
         from: message.from().map(|f| f.first().map(|a| a.name().unwrap_or(a.address().unwrap_or("Unknown"))).unwrap_or("Unknown").to_string()),
         to: message.to().map(|t| t.first().map(|a| a.address().unwrap_or("Unknown")).unwrap_or("Unknown").to_string()), 
@@ -248,7 +246,17 @@ pub async fn get_message(
         }).collect(),
     };
 
-    Ok(Json(clean))
+    Ok(clean)
+}
+
+pub async fn get_message(
+    Path(id): Path<String>,
+    headers: HeaderMap,
+) -> Result<Json<CleanMessage>, AppError> {
+    let token = get_google_token(&headers)?;
+    let client = Client::new();
+    let message = fetch_and_parse_message(&client, token, &id).await?;
+    Ok(Json(message))
 }
 
 pub async fn send_message(
@@ -375,7 +383,7 @@ fn has_attachments_in_payload(payload: &serde_json::Value) -> bool {
     false
 }
 
-// Get all messages in a thread
+// Get all messages in a thread with FULL content (HTML/Text/Attachments)
 pub async fn get_thread(
     Path(thread_id): Path<String>,
     headers: HeaderMap,
@@ -383,9 +391,9 @@ pub async fn get_thread(
     let token = get_google_token(&headers)?;
     let client = Client::new();
 
-    // Get thread info from Gmail API
+    // 1. Fetch thread details (minimal format) just to get message IDs
     let url = format!(
-        "https://gmail.googleapis.com/gmail/v1/users/me/threads/{}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date",
+        "https://gmail.googleapis.com/gmail/v1/users/me/threads/{}?format=minimal",
         thread_id
     );
     
@@ -401,57 +409,37 @@ pub async fn get_thread(
     
     let data: serde_json::Value = res.json().await?;
     
-    // Extract messages from thread
+    // Extract message IDs
     const EMPTY_ARRAY: &[serde_json::Value] = &[];
     let messages_data = data["messages"].as_array().map_or(EMPTY_ARRAY, |v| v.as_slice());
     
-    let mut messages = Vec::new();
-    
+    // 2. Fetch and parse each message in parallel
+    let mut tasks = Vec::new();
+
     for msg_data in messages_data {
         let id = msg_data["id"].as_str().unwrap_or("").to_string();
-        let headers = msg_data["payload"]["headers"].as_array().map_or(EMPTY_ARRAY, |v| v.as_slice());
+        let client_clone = client.clone();
+        let token_clone = token.to_string();
         
-        let subject = headers
-            .iter()
-            .find(|h| h["name"].as_str() == Some("Subject"))
-            .and_then(|h| h["value"].as_str())
-            .map(|s| s.to_string());
-        
-        let from = headers
-            .iter()
-            .find(|h| h["name"].as_str() == Some("From"))
-            .and_then(|h| h["value"].as_str())
-            .map(|s| s.to_string());
-        
-        let date = headers
-            .iter()
-            .find(|h| h["name"].as_str() == Some("Date"))
-            .and_then(|h| h["value"].as_str())
-            .map(|s| s.to_string());
-        
-        let unread = msg_data["labelIds"]
-            .as_array()
-            .map(|labels| labels.iter().any(|l| l.as_str() == Some("UNREAD")))
-            .unwrap_or(false);
-        
-        let has_attachments = has_attachments_in_payload(&msg_data["payload"]);
-        let snippet = msg_data["snippet"].as_str().unwrap_or("").to_string();
-        
-        messages.push(MessageSummary {
-            id,
-            thread_id: thread_id.clone(),
-            snippet,
-            subject,
-            from,
-            date,
-            unread,
-            has_attachments,
-            messages_in_thread: None, // Not needed in thread view
-        });
+        tasks.push(tokio::spawn(async move {
+            fetch_and_parse_message(&client_clone, &token_clone, &id).await
+        }));
     }
     
-    // Sort by date (oldest first for thread view - chronological order)
-    messages.sort_by(|a, b| a.date.cmp(&b.date));
+    // Wait for all tasks to complete
+    let results = futures::future::join_all(tasks).await;
+    
+    let mut messages: Vec<CleanMessage> = results
+        .into_iter()
+        .filter_map(|r| r.ok().and_then(|m| m.ok()))
+        .collect();
+
+    // 3. Sort by date (oldest first for thread view - chronological order)
+    messages.sort_by(|a, b| {
+        let date_a = a.date.as_deref().unwrap_or("");
+        let date_b = b.date.as_deref().unwrap_or("");
+        date_a.cmp(date_b)
+    });
     
     Ok(Json(json!({
         "thread_id": thread_id,
