@@ -167,7 +167,7 @@ pub async fn list_messages(
         // For each thread, keep only the latest message and add count
         enriched_messages = threads
             .into_iter()
-            .map(|(thread_id, mut msgs)| {
+            .map(|(_thread_id, mut msgs)| {
                 let count = msgs.len() as u32;
                 // Sort by date (newest first) - use date string comparison as fallback
                 msgs.sort_by(|a, b| b.date.cmp(&a.date));
@@ -352,6 +352,7 @@ async fn fetch_message_metadata(
         date,
         unread,
         has_attachments,
+        messages_in_thread: None, // Not set for individual message fetch
     })
 }
 
