@@ -29,6 +29,7 @@ async fn main() {
         .route("/api/messages", get(handlers::gmail::list_messages))
         .route("/api/messages/:id", get(handlers::gmail::get_message))
         .route("/api/messages/send", post(handlers::gmail::send_message))
+        .route("/api/threads/:thread_id", get(handlers::gmail::get_thread))
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive()) // Customize this for production security
         .layer(axum::middleware::from_fn_with_state(

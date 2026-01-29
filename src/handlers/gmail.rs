@@ -17,6 +17,7 @@ pub struct ListParams {
     pub max_results: Option<u32>,
     pub q: Option<String>,
     pub page_token: Option<String>,
+    pub collapse_threads: Option<bool>, // Gmail-style: show only latest message per thread
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -29,6 +30,7 @@ pub struct MessageSummary {
     pub date: Option<String>,
     pub unread: bool,
     pub has_attachments: bool,
+    pub messages_in_thread: Option<u32>, // How many messages in this thread (if collapsed)
 }
 
 #[derive(Serialize)]
@@ -144,10 +146,42 @@ pub async fn list_messages(
     // Wait for all tasks to complete
     let results = futures::future::join_all(tasks).await;
     
-    let enriched_messages: Vec<MessageSummary> = results
+    let mut enriched_messages: Vec<MessageSummary> = results
         .into_iter()
         .filter_map(|r| r.ok().and_then(|m| m.ok()))
         .collect();
+
+    // If collapse_threads is enabled, group by thread_id and keep only the latest message
+    if params.collapse_threads.unwrap_or(false) {
+        use std::collections::HashMap;
+        
+        let mut threads: HashMap<String, Vec<MessageSummary>> = HashMap::new();
+        
+        // Group messages by thread_id
+        for msg in enriched_messages {
+            threads.entry(msg.thread_id.clone())
+                .or_insert_with(Vec::new)
+                .push(msg);
+        }
+        
+        // For each thread, keep only the latest message and add count
+        enriched_messages = threads
+            .into_iter()
+            .map(|(thread_id, mut msgs)| {
+                let count = msgs.len() as u32;
+                // Sort by date (newest first) - use date string comparison as fallback
+                msgs.sort_by(|a, b| b.date.cmp(&a.date));
+                
+                // Take the latest message and add thread count
+                let mut latest = msgs.into_iter().next().unwrap();
+                latest.messages_in_thread = Some(count);
+                latest
+            })
+            .collect();
+        
+        // Sort final results by date (newest first)
+        enriched_messages.sort_by(|a, b| b.date.cmp(&a.date));
+    }
 
     Ok(Json(json!({
         "messages": enriched_messages,
@@ -338,4 +372,89 @@ fn has_attachments_in_payload(payload: &serde_json::Value) -> bool {
     }
     
     false
+}
+
+// Get all messages in a thread
+pub async fn get_thread(
+    Path(thread_id): Path<String>,
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let token = get_google_token(&headers)?;
+    let client = Client::new();
+
+    // Get thread info from Gmail API
+    let url = format!(
+        "https://gmail.googleapis.com/gmail/v1/users/me/threads/{}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date",
+        thread_id
+    );
+    
+    let res = client
+        .get(&url)
+        .bearer_auth(token)
+        .send()
+        .await?;
+    
+    if !res.status().is_success() {
+        return Err(AppError::GmailApi(res.error_for_status().unwrap_err()));
+    }
+    
+    let data: serde_json::Value = res.json().await?;
+    
+    // Extract messages from thread
+    const EMPTY_ARRAY: &[serde_json::Value] = &[];
+    let messages_data = data["messages"].as_array().map_or(EMPTY_ARRAY, |v| v.as_slice());
+    
+    let mut messages = Vec::new();
+    
+    for msg_data in messages_data {
+        let id = msg_data["id"].as_str().unwrap_or("").to_string();
+        let headers = msg_data["payload"]["headers"].as_array().map_or(EMPTY_ARRAY, |v| v.as_slice());
+        
+        let subject = headers
+            .iter()
+            .find(|h| h["name"].as_str() == Some("Subject"))
+            .and_then(|h| h["value"].as_str())
+            .map(|s| s.to_string());
+        
+        let from = headers
+            .iter()
+            .find(|h| h["name"].as_str() == Some("From"))
+            .and_then(|h| h["value"].as_str())
+            .map(|s| s.to_string());
+        
+        let date = headers
+            .iter()
+            .find(|h| h["name"].as_str() == Some("Date"))
+            .and_then(|h| h["value"].as_str())
+            .map(|s| s.to_string());
+        
+        let unread = msg_data["labelIds"]
+            .as_array()
+            .map(|labels| labels.iter().any(|l| l.as_str() == Some("UNREAD")))
+            .unwrap_or(false);
+        
+        let has_attachments = has_attachments_in_payload(&msg_data["payload"]);
+        let snippet = msg_data["snippet"].as_str().unwrap_or("").to_string();
+        
+        messages.push(MessageSummary {
+            id,
+            thread_id: thread_id.clone(),
+            snippet,
+            subject,
+            from,
+            date,
+            unread,
+            has_attachments,
+            messages_in_thread: None, // Not needed in thread view
+        });
+    }
+    
+    // Sort by date (oldest first for thread view - chronological order)
+    messages.sort_by(|a, b| a.date.cmp(&b.date));
+    
+    Ok(Json(json!({
+        "thread_id": thread_id,
+        "message_count": messages.len(),
+        "messages": messages
+    })))
 }
