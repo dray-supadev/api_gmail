@@ -277,7 +277,8 @@ async fn fetch_message_metadata(
     let data: serde_json::Value = res.json().await?;
     
     // Parse headers
-    let headers = data["payload"]["headers"].as_array().unwrap_or(&vec![]);
+    const EMPTY_ARRAY: &[serde_json::Value] = &[];
+    let headers = data["payload"]["headers"].as_array().unwrap_or(EMPTY_ARRAY);
     
     let subject = headers
         .iter()
