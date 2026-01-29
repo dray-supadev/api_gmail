@@ -19,11 +19,16 @@ pub struct ListParams {
     pub page_token: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct MessageSummary {
     pub id: String,
     pub thread_id: String,
-    pub snippet: Option<String>,
+    pub snippet: String,
+    pub subject: Option<String>,
+    pub from: Option<String>,
+    pub date: Option<String>,
+    pub unread: bool,
+    pub has_attachments: bool,
 }
 
 #[derive(Serialize)]
@@ -74,7 +79,7 @@ pub async fn list_messages(
 
     let mut url = "https://gmail.googleapis.com/gmail/v1/users/me/messages".to_string();
     
-    // Build query params manually to handle vector/string conversion easier
+    // Build query params
     let mut query = Vec::new();
     if let Some(max) = params.max_results {
         query.push(format!("maxResults={}", max));
@@ -82,10 +87,9 @@ pub async fn list_messages(
     if let Some(q) = params.q {
         query.push(format!("q={}", urlencoding::encode(&q)));
     }
-    if let Some(token) = params.page_token {
-        query.push(format!("pageToken={}", token));
+    if let Some(token_param) = params.page_token {
+        query.push(format!("pageToken={}", token_param));
     }
-    // Handle labels: Bubble might send "INBOX" or "INBOX,SENT"
     if let Some(labels) = params.label_ids {
         for label in labels.split(',') {
             query.push(format!("labelIds={}", label.trim()));
@@ -96,6 +100,7 @@ pub async fn list_messages(
         url = format!("{}?{}", url, query.join("&"));
     }
 
+    // Get list of message IDs
     let res = client
         .get(&url)
         .bearer_auth(token)
@@ -106,8 +111,49 @@ pub async fn list_messages(
         return Err(AppError::GmailApi(res.error_for_status().unwrap_err()));
     }
 
-    let json: serde_json::Value = res.json().await?;
-    Ok(Json(json))
+    let list_response: serde_json::Value = res.json().await?;
+    
+    // Extract message IDs
+    let messages = list_response["messages"]
+        .as_array()
+        .map(|arr| arr.to_vec())
+        .unwrap_or_default();
+    
+    if messages.is_empty() {
+        return Ok(Json(json!({
+            "messages": [],
+            "nextPageToken": list_response["nextPageToken"],
+            "resultSizeEstimate": 0
+        })));
+    }
+
+    // Fetch metadata for each message in parallel
+    let mut tasks = Vec::new();
+    
+    for msg in messages {
+        let id = msg["id"].as_str().unwrap_or("").to_string();
+        let thread_id = msg["threadId"].as_str().unwrap_or("").to_string();
+        let client_clone = client.clone();
+        let token_clone = token.to_string();
+        
+        tasks.push(tokio::spawn(async move {
+            fetch_message_metadata(&client_clone, &token_clone, &id, &thread_id).await
+        }));
+    }
+
+    // Wait for all tasks to complete
+    let results = futures::future::join_all(tasks).await;
+    
+    let enriched_messages: Vec<MessageSummary> = results
+        .into_iter()
+        .filter_map(|r| r.ok().and_then(|m| m.ok()))
+        .collect();
+
+    Ok(Json(json!({
+        "messages": enriched_messages,
+        "nextPageToken": list_response["nextPageToken"],
+        "resultSizeEstimate": list_response["resultSizeEstimate"]
+    })))
 }
 
 pub async fn get_message(
@@ -204,4 +250,91 @@ pub async fn send_message(
 
     let json: serde_json::Value = res.json().await?;
     Ok(Json(json))
+}
+
+// Helper function to fetch metadata for a single message
+async fn fetch_message_metadata(
+    client: &Client,
+    token: &str,
+    id: &str,
+    thread_id: &str,
+) -> Result<MessageSummary, AppError> {
+    let url = format!(
+        "https://gmail.googleapis.com/gmail/v1/users/me/messages/{}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date",
+        id
+    );
+    
+    let res = client
+        .get(&url)
+        .bearer_auth(token)
+        .send()
+        .await?;
+    
+    if !res.status().is_success() {
+        return Err(AppError::GmailApi(res.error_for_status().unwrap_err()));
+    }
+    
+    let data: serde_json::Value = res.json().await?;
+    
+    // Parse headers
+    let headers = data["payload"]["headers"].as_array().unwrap_or(&vec![]);
+    
+    let subject = headers
+        .iter()
+        .find(|h| h["name"].as_str() == Some("Subject"))
+        .and_then(|h| h["value"].as_str())
+        .map(|s| s.to_string());
+    
+    let from = headers
+        .iter()
+        .find(|h| h["name"].as_str() == Some("From"))
+        .and_then(|h| h["value"].as_str())
+        .map(|s| s.to_string());
+    
+    let date = headers
+        .iter()
+        .find(|h| h["name"].as_str() == Some("Date"))
+        .and_then(|h| h["value"].as_str())
+        .map(|s| s.to_string());
+    
+    // Check if unread (labelIds contains "UNREAD")
+    let unread = data["labelIds"]
+        .as_array()
+        .map(|labels| labels.iter().any(|l| l.as_str() == Some("UNREAD")))
+        .unwrap_or(false);
+    
+    // Check for attachments
+    let has_attachments = has_attachments_in_payload(&data["payload"]);
+    
+    let snippet = data["snippet"].as_str().unwrap_or("").to_string();
+    
+    Ok(MessageSummary {
+        id: id.to_string(),
+        thread_id: thread_id.to_string(),
+        snippet,
+        subject,
+        from,
+        date,
+        unread,
+        has_attachments,
+    })
+}
+
+// Recursively check if payload has attachments
+fn has_attachments_in_payload(payload: &serde_json::Value) -> bool {
+    if let Some(filename) = payload["filename"].as_str() {
+        if !filename.is_empty() {
+            return true;
+        }
+    }
+    
+    if let Some(parts) = payload["parts"].as_array() {
+        for part in parts {
+            if has_attachments_in_payload(part) {
+                return true;
+            }
+        }
+    }
+    
+    false
 }
