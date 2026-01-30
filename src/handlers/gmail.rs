@@ -8,6 +8,18 @@ use reqwest::Client;
 use crate::error::AppError;
 use mail_parser::{MessageParser, MimeHeaders};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+// --- Global Pagination Cache ---
+use std::sync::{Mutex};
+use std::collections::HashMap;
+use std::sync::OnceLock;
+
+// Key for the cache: (Google Token Hash + Query Params Hash) -> Page Number -> Gmail Token
+// We use a simple string key: "{token_hash}_{query}_{labels}_{max}_{page}"
+static PAGINATION_CACHE: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+
+fn get_cache() -> &'static Mutex<HashMap<String, String>> {
+    PAGINATION_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
 
 // --- DTOs ---
 
@@ -16,7 +28,8 @@ pub struct ListParams {
     pub label_ids: Option<String>, // Comma separated
     pub max_results: Option<u32>,
     pub q: Option<String>,
-    pub page_token: Option<String>,
+    pub page_token: Option<String>, // Legacy direct token support
+    pub page_number: Option<u32>,   // New: 1, 2, 3 support!
     pub collapse_threads: Option<bool>, // Gmail-style: show only latest message per thread
 }
 
@@ -81,6 +94,48 @@ pub async fn list_messages(
 
     let mut url = "https://gmail.googleapis.com/gmail/v1/users/me/messages".to_string();
     
+    // Pagination Logic
+    let page_num = params.page_number.unwrap_or(1);
+    
+    // Determine the actual Gmail Token to use
+    let actual_token = if page_num <= 1 {
+        // Page 1 always has no token
+        None 
+    } else if let Some(manual_token) = &params.page_token {
+        // User provided explicit token (overrides page number)
+        Some(manual_token.clone())
+    } else {
+        // Look up token for this page number in Cache
+        // Create a unique cache key for this user's specific query
+        let cache_key_prefix = format!(
+            "{}_{}_{}_{}",
+            simple_hash(token),
+            params.q.as_deref().unwrap_or(""),
+            params.label_ids.as_deref().unwrap_or(""),
+            params.max_results.unwrap_or(10)
+        );
+        let key = format!("{}_{}", cache_key_prefix, page_num);
+        
+        // Try to get token from cache
+        let cache = get_cache().lock().unwrap();
+        match cache.get(&key) {
+            Some(t) => Some(t.clone()),
+            None => {
+                // If we don't have the token for Page 3, we can't jump there.
+                // Fallback: request will likely happen without token (Page 1), or we could error.
+                // Let's explicitly return empty to signal "end" or invalid navigation
+                if page_num > 1 {
+                     return Ok(Json(json!({
+                        "messages": [],
+                        "resultSizeEstimate": 0,
+                        "warning": "Page token not found. Please navigate sequentially from Page 1."
+                    })));
+                }
+                None
+            }
+        }
+    };
+
     // Build query params
     let mut query = Vec::new();
     if let Some(max) = params.max_results {
@@ -89,9 +144,12 @@ pub async fn list_messages(
     if let Some(q) = params.q {
         query.push(format!("q={}", urlencoding::encode(&q)));
     }
-    if let Some(token_param) = params.page_token {
-        query.push(format!("pageToken={}", token_param));
+    
+    // Use the resolved token
+    if let Some(t) = actual_token {
+        query.push(format!("pageToken={}", t));
     }
+    
     if let Some(labels) = params.label_ids {
         for label in labels.split(',') {
             query.push(format!("labelIds={}", label.trim()));
@@ -115,6 +173,22 @@ pub async fn list_messages(
 
     let list_response: serde_json::Value = res.json().await?;
     
+    // CACHE UPDATE: Save the 'nextPageToken' for the NEXT page (current + 1)
+    if let Some(next_token) = list_response["nextPageToken"].as_str() {
+        let cache_key_prefix = format!(
+            "{}_{}_{}_{}",
+            simple_hash(token),
+            params.q.as_deref().unwrap_or(""),
+            params.label_ids.as_deref().unwrap_or(""),
+            params.max_results.unwrap_or(10)
+        );
+        let next_page_num = page_num + 1;
+        let key = format!("{}_{}", cache_key_prefix, next_page_num);
+        
+        let mut cache = get_cache().lock().unwrap();
+        cache.insert(key, next_token.to_string());
+    }
+    
     // Extract message IDs
     let messages = list_response["messages"]
         .as_array()
@@ -125,6 +199,7 @@ pub async fn list_messages(
         return Ok(Json(json!({
             "messages": [],
             "nextPageToken": list_response["nextPageToken"],
+            "page": page_num,
             "resultSizeEstimate": 0
         })));
     }
@@ -186,8 +261,19 @@ pub async fn list_messages(
     Ok(Json(json!({
         "messages": enriched_messages,
         "nextPageToken": list_response["nextPageToken"],
+        "page": page_num,
+        "next_page": page_num + 1,
         "resultSizeEstimate": list_response["resultSizeEstimate"]
     })))
+}
+
+// Simple hash for cache keys
+fn simple_hash(s: &str) -> String {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    s.hash(&mut hasher);
+    hasher.finish().to_string()
 }
 
 // Helper to fetch and parse a single message fully
