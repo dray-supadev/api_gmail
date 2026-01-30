@@ -211,8 +211,11 @@ async fn fetch_and_parse_message(
     let data: serde_json::Value = res.json().await?;
     
     // Decode Base64Url raw content
+    // Gmail API should return URL_SAFE_NO_PAD, but sometimes it might include padding or be messy.
+    // Robust fix: trim '=' and use URL_SAFE_NO_PAD.
     let raw_base64 = data["raw"].as_str().unwrap_or_default();
-    let raw_bytes = URL_SAFE_NO_PAD.decode(raw_base64).map_err(|e| anyhow::anyhow!("Base64 Error: {}", e))?;
+    let sanitized_base64 = raw_base64.trim_end_matches('=');
+    let raw_bytes = URL_SAFE_NO_PAD.decode(sanitized_base64).map_err(|e| anyhow::anyhow!("Base64 Error: {} (len: {})", e, raw_base64.len()))?;
 
     // Parse MIME
     let message = MessageParser::default().parse(&raw_bytes).ok_or_else(|| anyhow::anyhow!("Failed to parse email"))?;
