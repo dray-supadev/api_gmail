@@ -137,12 +137,13 @@ pub async fn list_messages(
     };
 
     // Build query params
+    // Build query params
     let mut query = Vec::new();
     if let Some(max) = params.max_results {
         query.push(format!("maxResults={}", max));
     }
-    if let Some(q) = params.q {
-        query.push(format!("q={}", urlencoding::encode(&q)));
+    if let Some(q) = &params.q {
+        query.push(format!("q={}", urlencoding::encode(q)));
     }
     
     // Use the resolved token
@@ -150,7 +151,7 @@ pub async fn list_messages(
         query.push(format!("pageToken={}", t));
     }
     
-    if let Some(labels) = params.label_ids {
+    if let Some(labels) = &params.label_ids {
         for label in labels.split(',') {
             query.push(format!("labelIds={}", label.trim()));
         }
