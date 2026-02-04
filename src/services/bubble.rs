@@ -34,7 +34,7 @@ impl BubbleService {
             .await?;
 
         if !res.status().is_success() {
-             return Err(AppError::GmailApi(res.error_for_status().unwrap_err()));
+             return Err(AppError::BubbleApi(res.error_for_status().unwrap_err()));
         }
 
         let body: Value = res.json().await?;
@@ -91,11 +91,11 @@ impl BubbleService {
         <table role="presentation" width="600" bgcolor="#ffffff" cellpadding="0" cellspacing="0" border="0" style="border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
          
           <!-- Header -->
-          <tr>
+          <!-- <tr>
             <td align="center" bgcolor="{heading_color}" style="border-radius: 10px 10px 0 0; padding: 10px;">
               <h1 style="margin:0; color:{heading_text_color}; font-size: 24px;">Quote Proposal from {company_name}</h1>
             </td>
-          </tr>
+          </tr> -->
 
           <!-- Main Content -->
           <tr>

@@ -20,6 +20,8 @@ pub enum AppError {
     BadRequest(String),
     #[error("Configuration error: {0}")]
     Config(String),
+    #[error("Bubble API error: {0}")]
+    BubbleApi(reqwest::Error),
 }
 
 impl IntoResponse for AppError {
@@ -43,6 +45,20 @@ impl IntoResponse for AppError {
             AppError::MissingToken => (StatusCode::UNAUTHORIZED, "Missing x-google-token header"),
             AppError::BadRequest(ref msg) => (StatusCode::BAD_REQUEST, msg.as_str()),
             AppError::Config(ref msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.as_str()),
+            AppError::BubbleApi(ref e) => {
+                // If the Bubble API returns 401, it means OUR token is wrong/expired
+                if let Some(status) = e.status() {
+                    if status == StatusCode::UNAUTHORIZED {
+                        (StatusCode::INTERNAL_SERVER_ERROR, "Bubble API Token Invalid/Expired")
+                    } else if status == StatusCode::NOT_FOUND {
+                        (StatusCode::NOT_FOUND, "Quote ID not found in Bubble")
+                    } else {
+                        (StatusCode::BAD_GATEWAY, "Bubble API returned an error")
+                    }
+                } else {
+                    (StatusCode::BAD_GATEWAY, "Failed to reach Bubble API")
+                }
+            },
             _ => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
         };
 
