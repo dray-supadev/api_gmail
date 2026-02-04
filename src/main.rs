@@ -33,6 +33,8 @@ async fn main() {
         .route("/api/threads/:thread_id", get(handlers::api::get_thread))
         .route("/api/quote/preview", get(handlers::api::preview_quote))
         .route("/api/quote/send", post(handlers::api::send_quote_email))
+        // Explicitly serve embed.js to diagnose ServeDir issues
+        .route("/embed.js", axum::routing::get_service(tower_http::services::ServeFile::new("frontend/dist/embed.js")))
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive()) // Customize this for production security
         .fallback_service(
