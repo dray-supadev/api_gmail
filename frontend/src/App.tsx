@@ -60,30 +60,8 @@ function App() {
 
   const selectedMessage = messages.find(m => m.id === selectedThreadId || m.thread_id === selectedThreadId);
 
-  // If we are in "Quote Mode" (quoteId provided), show ONLY the Quote Composer.
-  // The user asked to remove the "first window" (Inbox/Sidebar) in this context.
-  if (quoteId && activeToken) {
-    return (
-      <div className="h-screen bg-background flex flex-col items-center justify-center p-4">
-        <div className="w-full h-full max-w-5xl shadow-2xl rounded-lg overflow-hidden border">
-          <QuotePreview
-            quoteId={quoteId}
-            version={bubbleVersion}
-            token={activeToken}
-            provider={provider}
-            initialTo={selectedMessage?.from ? [selectedMessage.from.replace(/<.*>/, "").trim()] : []}
-            initialSubject={selectedMessage?.subject ? `RE: ${selectedMessage.subject}` : "Quote Proposal"}
-            threadId={selectedMessage?.thread_id}
-            onClose={() => setQuoteId(null)}
-            className="w-full h-full border-none shadow-none"
-          />
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans">
+    <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans relative">
       <Sidebar currentProvider={provider} onProviderChange={setProvider} />
 
       {/* Messages */}
@@ -103,6 +81,25 @@ function App() {
           <ThreadView threadId={selectedThreadId} />
         </div>
       </div>
+
+      {/* Quote Preview Modal Overlay */}
+      {quoteId && activeToken && (
+        <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-8">
+          <div className="w-full h-full max-w-6xl shadow-2xl rounded-lg overflow-hidden border ring-1 ring-border">
+            <QuotePreview
+              quoteId={quoteId}
+              version={bubbleVersion}
+              token={activeToken}
+              provider={provider}
+              initialTo={selectedMessage?.from ? [selectedMessage.from.replace(/<.*>/, "").trim()] : []}
+              initialSubject={selectedMessage?.subject ? `RE: ${selectedMessage.subject}` : "Quote Proposal"}
+              threadId={selectedMessage?.thread_id}
+              onClose={() => setQuoteId(null)}
+              className="w-full h-full border-none shadow-none"
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
