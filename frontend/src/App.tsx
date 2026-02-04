@@ -43,11 +43,18 @@ function App() {
 
   // Fetch messages when token is available
   useEffect(() => {
+    // Clear messages when provider switches to avoid showing wrong data
+    setMessages([]);
+    setSelectedThreadId(null);
+
     if (!activeToken) return;
     setLoading(true);
     api.listMessages(activeToken, provider)
       .then(setMessages)
-      .catch(err => console.error("Failed to load messages:", err))
+      .catch(err => {
+        console.error("Failed to load messages:", err);
+        setMessages([]); // Ensure empty on error
+      })
       .finally(() => setLoading(false));
   }, [activeToken, provider]);
 

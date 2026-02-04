@@ -80,9 +80,7 @@ export function QuotePreview({
         <div className="w-[450px] border-l flex flex-col bg-background h-full shadow-xl z-10">
             <div className="p-4 border-b flex justify-between items-center bg-muted/30">
                 <h2 className="font-semibold text-lg">Send Quote</h2>
-                <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
-                    &times;
-                </button>
+                {/* Close button removed to avoid confusion with main widget close button */}
             </div>
 
             <div className="p-4 space-y-4 overflow-auto flex-1">
