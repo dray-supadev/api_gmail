@@ -45,9 +45,25 @@
             }
 
             // Create Iframe
+            // Create Iframe
             const iframe = document.createElement("iframe");
-            // TODO: Replace with actual deployed URL
-            iframe.src = "http://localhost:5173";
+
+            // Auto-detect domain from the script tag source, or fallback to config
+            let appUrl = config.appUrl;
+            if (!appUrl) {
+                // Try to find the script tag that loaded this file
+                const scriptTag = document.querySelector('script[src*="embed.js"]');
+                if (scriptTag) {
+                    try {
+                        const url = new URL(scriptTag.src);
+                        appUrl = url.origin;
+                    } catch (e) {
+                        console.error("Could not parse script URL", e);
+                    }
+                }
+            }
+
+            iframe.src = appUrl || "https://app.drayinsight.com"; // Fallback to known domain
             iframe.style.width = "100%";
             iframe.style.height = "100%";
             iframe.style.border = "none";
