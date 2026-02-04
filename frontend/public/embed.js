@@ -1,5 +1,8 @@
 (function () {
-    if (window.GmailOutlookWidget) return;
+    if (window.GmailOutlookWidget) {
+        console.log("Widgets already loaded");
+        return;
+    }
 
     window.GmailOutlookWidget = {
         open: function (config) {
