@@ -80,7 +80,6 @@ export function QuotePreview({
     }
 
     return (
-    return (
         <div className={cn("flex flex-col md:flex-row bg-background h-full shadow-xl z-10 overflow-hidden", className)}>
             {/* Left Panel: Form & Controls */}
             <div className="w-full md:w-[400px] flex flex-col border-r bg-card z-20 shadow-sm">
