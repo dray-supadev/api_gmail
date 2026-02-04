@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { api } from "@/api"
 import { Button } from "./ui/button"
+import { cn } from "@/lib/utils"
 
 interface QuotePreviewProps {
     quoteId: string
@@ -10,7 +11,9 @@ interface QuotePreviewProps {
     threadId?: string
     token: string
     provider: string
+    provider: string
     onClose: () => void
+    className?: string
 }
 
 export function QuotePreview({
@@ -21,7 +24,8 @@ export function QuotePreview({
     threadId,
     token,
     provider,
-    onClose
+    onClose,
+    className
 }: QuotePreviewProps) {
     const [html, setHtml] = useState<string>("")
     const [comment, setComment] = useState("")
@@ -77,7 +81,7 @@ export function QuotePreview({
     }
 
     return (
-        <div className="w-[450px] border-l flex flex-col bg-background h-full shadow-xl z-10">
+        <div className={cn("w-[450px] border-l flex flex-col bg-background h-full shadow-xl z-10", className)}>
             <div className="p-4 border-b flex justify-between items-center bg-muted/30">
                 <h2 className="font-semibold text-lg">Send Quote</h2>
                 {/* Close button removed to avoid confusion with main widget close button */}
