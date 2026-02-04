@@ -10,6 +10,8 @@ RUN npm install
 COPY frontend/ ./
 # Set correct path for vite build
 RUN npm run build
+# Explicitly copy embed.js to ensure it ends up in dist
+RUN cp public/embed.js dist/embed.js || echo "Warning: public/embed.js empty or missing"
 
 # Stage 2: Build Backend
 FROM rust:1.84 as backend-builder
