@@ -22,7 +22,7 @@ async fn main() {
         .init();
 
     // Load configuration
-    let config = config::Config::load().expect("Failed to load configuration");
+    let _config = config::Config::load().expect("Failed to load configuration");
 
     // Build application router
     let app = Router::new()

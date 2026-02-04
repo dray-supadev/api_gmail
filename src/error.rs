@@ -47,10 +47,13 @@ impl IntoResponse for AppError {
             AppError::Config(ref msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.as_str()),
             AppError::BubbleApi(ref e) => {
                 // If the Bubble API returns 401, it means OUR token is wrong/expired
-                if let Some(status) = e.status() {
-                    if status == StatusCode::UNAUTHORIZED {
+                if let Some(reqwest_status) = e.status() {
+                    let status_code = StatusCode::from_u16(reqwest_status.as_u16())
+                        .unwrap_or(StatusCode::BAD_GATEWAY);
+
+                    if status_code == StatusCode::UNAUTHORIZED {
                         (StatusCode::INTERNAL_SERVER_ERROR, "Bubble API Token Invalid/Expired")
-                    } else if status == StatusCode::NOT_FOUND {
+                    } else if status_code == StatusCode::NOT_FOUND {
                         (StatusCode::NOT_FOUND, "Quote ID not found in Bubble")
                     } else {
                         (StatusCode::BAD_GATEWAY, "Bubble API returned an error")
