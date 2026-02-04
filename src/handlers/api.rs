@@ -43,7 +43,7 @@ pub async fn list_messages(
     let token = get_token(&headers)?;
     let provider = get_provider(&provider_params);
     
-    let result = provider.list_messages(token, list_params).await?;
+    let result: serde_json::Value = provider.list_messages(token, list_params).await?;
     Ok(Json(result).into_response())
 }
 
@@ -55,7 +55,7 @@ pub async fn get_message(
     let token = get_token(&headers)?;
     let provider = get_provider(&provider_params);
     
-    let result = provider.get_message(token, &id).await?;
+    let result: super::provider::CleanMessage = provider.get_message(token, &id).await?;
     Ok(Json(result).into_response())
 }
 
@@ -67,7 +67,7 @@ pub async fn get_thread(
     let token = get_token(&headers)?;
     let provider = get_provider(&provider_params);
     
-    let result = provider.get_thread(token, &id).await?;
+    let result: serde_json::Value = provider.get_thread(token, &id).await?;
     Ok(Json(result).into_response())
 }
 
@@ -79,6 +79,6 @@ pub async fn send_message(
     let token = get_token(&headers)?;
     let provider = get_provider(&provider_params);
     
-    let result = provider.send_message(token, payload).await?;
+    let result: serde_json::Value = provider.send_message(token, payload).await?;
     Ok(Json(result).into_response())
 }
