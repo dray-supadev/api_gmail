@@ -426,10 +426,44 @@ impl EmailProvider for GmailProvider {
     async fn send_message(&self, token: &str, req: SendMessageRequest) -> Result<serde_json::Value, AppError> {
         let client = Client::new();
 
-        let email_content = format!(
-            "To: {}\r\nSubject: {}\r\nContent-Type: text/html; charset=utf-8\r\n\r\n{}",
-            req.to, req.subject, req.body
-        );
+        let to_header = req.to.join(", ");
+        let boundary = "boundary_1234567890"; // Simple static boundary
+
+        let mut email_content = String::new();
+        email_content.push_str(&format!("To: {}\r\n", to_header));
+        email_content.push_str(&format!("Subject: {}\r\n", req.subject));
+        
+        let has_attachments = req.attachments.as_ref().map_or(false, |atts| !atts.is_empty());
+
+        if has_attachments {
+            email_content.push_str("MIME-Version: 1.0\r\n");
+            email_content.push_str(&format!("Content-Type: multipart/mixed; boundary=\"{}\"\r\n\r\n", boundary));
+            
+            // HTML Part
+            email_content.push_str(&format!("--{}\r\n", boundary));
+            email_content.push_str("Content-Type: text/html; charset=utf-8\r\n\r\n");
+            email_content.push_str(&req.body);
+            email_content.push_str("\r\n\r\n");
+
+            // Attachments
+            if let Some(attachments) = &req.attachments {
+                use base64::{Engine as _, engine::general_purpose::STANDARD};
+                for att in attachments {
+                    email_content.push_str(&format!("--{}\r\n", boundary));
+                    email_content.push_str(&format!("Content-Type: {}; name=\"{}\"\r\n", att.mime_type, att.filename));
+                    email_content.push_str(&format!("Content-Disposition: attachment; filename=\"{}\"\r\n", att.filename));
+                    email_content.push_str("Content-Transfer-Encoding: base64\r\n\r\n");
+                    
+                    let encoded = STANDARD.encode(&att.content);
+                    email_content.push_str(&encoded);
+                    email_content.push_str("\r\n\r\n");
+                }
+            }
+            email_content.push_str(&format!("--{}--", boundary));
+        } else {
+             email_content.push_str("Content-Type: text/html; charset=utf-8\r\n\r\n");
+             email_content.push_str(&req.body);
+        }
 
         let raw_encoded = URL_SAFE_NO_PAD.encode(email_content.as_bytes());
 

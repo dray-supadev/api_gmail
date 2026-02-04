@@ -63,7 +63,16 @@
                 }
             }
 
-            iframe.src = appUrl || "https://app.drayinsight.com"; // Fallback to known domain
+            iframe.src = appUrl || "https://app.drayinsight.com";
+
+            // Append configuration params
+            const url = new URL(iframe.src);
+            if (config.token) url.searchParams.set("token", config.token);
+            if (config.provider) url.searchParams.set("provider", config.provider);
+            if (config.quoteId) url.searchParams.set("quoteId", config.quoteId);
+            if (config.bubbleVersion) url.searchParams.set("bubbleVersion", config.bubbleVersion);
+            iframe.src = url.toString();
+
             iframe.style.width = "100%";
             iframe.style.height = "100%";
             iframe.style.border = "none";

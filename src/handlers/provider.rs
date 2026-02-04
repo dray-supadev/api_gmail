@@ -36,11 +36,20 @@ pub struct AttachmentSummary {
     pub id: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Attachment {
+    pub filename: String,
+    pub content: Vec<u8>,
+    pub mime_type: String,
+}
+
 #[derive(Deserialize, Debug)]
 pub struct SendMessageRequest {
-    pub to: String,
+    pub to: Vec<String>,
     pub subject: String,
     pub body: String,
+    pub thread_id: Option<String>,
+    pub attachments: Option<Vec<Attachment>>,
 }
 
 #[async_trait]

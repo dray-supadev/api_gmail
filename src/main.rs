@@ -9,6 +9,7 @@ mod config;
 mod error;
 mod handlers;
 mod middleware;
+mod services;
 
 #[tokio::main]
 async fn main() {
@@ -30,6 +31,8 @@ async fn main() {
         .route("/api/messages/:id", get(handlers::api::get_message))
         .route("/api/messages/send", post(handlers::api::send_message))
         .route("/api/threads/:thread_id", get(handlers::api::get_thread))
+        .route("/api/quote/preview", get(handlers::api::preview_quote))
+        .route("/api/quote/send", post(handlers::api::send_quote_email))
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive()) // Customize this for production security
         .layer(axum::middleware::from_fn_with_state(

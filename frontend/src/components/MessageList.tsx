@@ -3,10 +3,10 @@ import { cn } from "@/lib/utils"
 
 interface Message {
     id: string
-    from: string
-    subject: string
-    snippet: string
-    date: string
+    from?: string
+    subject?: string
+    snippet?: string
+    date?: string
     unread: boolean
     has_attachments: boolean
 }
@@ -18,6 +18,10 @@ interface MessageListProps {
 }
 
 export function MessageList({ messages, selectedId, onSelect }: MessageListProps) {
+    if (!messages.length) {
+        return <div className="p-4 text-center text-muted-foreground">No messages</div>
+    }
+
     return (
         <div className="flex flex-col h-full border-r bg-background w-[400px]">
             {/* Header / Search */}
@@ -47,17 +51,17 @@ export function MessageList({ messages, selectedId, onSelect }: MessageListProps
                     >
                         <div className="flex justify-between items-start mb-1">
                             <span className={cn("text-sm truncate max-w-[200px]", message.unread ? "text-foreground" : "")}>
-                                {message.from}
+                                {message.from || "Unknown"}
                             </span>
                             <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
-                                {message.date}
+                                {message.date || ""}
                             </span>
                         </div>
                         <h3 className={cn("text-sm mb-1 truncate", message.unread ? "text-foreground" : "")}>
                             {message.subject || "(No Subject)"}
                         </h3>
                         <p className="text-xs text-muted-foreground line-clamp-2">
-                            {message.snippet}
+                            {message.snippet || ""}
                         </p>
                     </div>
                 ))}

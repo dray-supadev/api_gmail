@@ -113,6 +113,27 @@ impl EmailProvider for OutlookProvider {
          let client = Client::new();
          let url = "https://graph.microsoft.com/v1.0/me/sendMail";
          
+         let recipients: Vec<serde_json::Value> = req.to.iter().map(|email| {
+             json!({
+                 "emailAddress": {
+                     "address": email
+                 }
+             })
+         }).collect();
+
+         let mut attachments_json = vec![];
+         if let Some(attachments) = req.attachments {
+             use base64::{Engine as _, engine::general_purpose};
+             for att in attachments {
+                 attachments_json.push(json!({
+                     "@odata.type": "#microsoft.graph.fileAttachment",
+                     "name": att.filename,
+                     "contentType": att.mime_type,
+                     "contentBytes": general_purpose::STANDARD.encode(&att.content) 
+                 }));
+             }
+         }
+
          let body = json!({
              "message": {
                  "subject": req.subject,
@@ -120,13 +141,8 @@ impl EmailProvider for OutlookProvider {
                      "contentType": "HTML",
                      "content": req.body
                  },
-                 "toRecipients": [
-                     {
-                         "emailAddress": {
-                             "address": req.to
-                         }
-                     }
-                 ]
+                 "toRecipients": recipients,
+                 "attachments": attachments_json
              },
              "saveToSentItems": "true"
          });
