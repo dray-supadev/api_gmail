@@ -45,8 +45,12 @@ export function QuotePreview({
                 })
                 setHtml(res.html)
             } catch (e) {
-                console.error(e)
-                setHtml("<p class='text-red-500'>Failed to load preview</p>")
+                console.error("Preview generation failed:", e)
+                setHtml(`<div class="p-4 text-red-500 flex flex-col items-center justify-center h-full">
+                    <p class="font-bold">Failed to load preview</p>
+                    <p class="text-sm mt-2 text-gray-500">${e instanceof Error ? e.message : "Unknown error"}</p>
+                    <button onclick="window.location.reload()" class="mt-4 px-3 py-1 bg-red-100 rounded text-xs hover:bg-red-200">Retry</button>
+                </div>`)
             } finally {
                 setLoadingPreview(false)
             }

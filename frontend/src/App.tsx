@@ -95,7 +95,12 @@ function App() {
               version={bubbleVersion}
               token={activeToken}
               provider={provider}
-              initialTo={selectedMessage.from ? [selectedMessage.from.replace(/<.*>/, "").trim()] : []}
+              initialTo={selectedMessage.from ? [
+                (() => {
+                  const match = selectedMessage.from.match(/<([^>]+)>/);
+                  return match ? match[1] : selectedMessage.from.trim();
+                })()
+              ] : []}
               initialSubject={selectedMessage.subject ? `RE: ${selectedMessage.subject}` : "Quote Proposal"}
               threadId={selectedMessage.thread_id}
               onClose={() => setQuoteId(null)}
