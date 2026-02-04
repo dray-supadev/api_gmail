@@ -80,62 +80,76 @@ export function QuotePreview({
     }
 
     return (
-        <div className={cn("w-[450px] border-l flex flex-col bg-background h-full shadow-xl z-10", className)}>
-            <div className="p-4 border-b flex justify-between items-center bg-muted/30">
-                <h2 className="font-semibold text-lg">Send Quote</h2>
-                {/* Close button removed to avoid confusion with main widget close button */}
-            </div>
-
-            <div className="p-4 space-y-4 overflow-auto flex-1">
-                <div className="space-y-2">
-                    <label className="text-sm font-medium">To</label>
-                    <input
-                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        value={to}
-                        onChange={e => setTo(e.target.value)}
-                    />
+    return (
+        <div className={cn("flex flex-col md:flex-row bg-background h-full shadow-xl z-10 overflow-hidden", className)}>
+            {/* Left Panel: Form & Controls */}
+            <div className="w-full md:w-[400px] flex flex-col border-r bg-card z-20 shadow-sm">
+                <div className="p-6 border-b">
+                    <h2 className="font-semibold text-xl tracking-tight">Send Quote</h2>
+                    <p className="text-sm text-muted-foreground mt-1">Compose your quote proposal.</p>
                 </div>
 
-                <div className="space-y-2">
-                    <label className="text-sm font-medium">Subject</label>
-                    <input
-                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        value={subject}
-                        onChange={e => setSubject(e.target.value)}
-                    />
-                </div>
+                <div className="p-6 space-y-5 overflow-y-auto flex-1">
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">To</label>
+                        <input
+                            className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            value={to}
+                            onChange={e => setTo(e.target.value)}
+                            placeholder="recipient@example.com"
+                        />
+                    </div>
 
-                <div className="space-y-2">
-                    <label className="text-sm font-medium">Comment (Added to quote)</label>
-                    <textarea
-                        className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                        value={comment}
-                        onChange={e => setComment(e.target.value)}
-                        placeholder="Add a comment to the quote..."
-                    />
-                </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium leading-none">Subject</label>
+                        <input
+                            className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            value={subject}
+                            onChange={e => setSubject(e.target.value)}
+                        />
+                    </div>
 
-                <div className="space-y-2">
-                    <label className="text-sm font-medium">Preview</label>
-                    <div className="border rounded-md overflow-hidden bg-white min-h-[400px]">
-                        {loadingPreview && <div className="p-4 text-center text-sm text-muted-foreground">Loading preview...</div>}
-                        {!loadingPreview && (
-                            <iframe
-                                title="preview"
-                                srcDoc={html}
-                                className="w-full h-[600px] border-none"
-                                style={{ pointerEvents: 'none' }} // Disable interaction within preview
-                            />
-                        )}
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium leading-none">Comment</label>
+                        <textarea
+                            className="flex min-h-[120px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                            value={comment}
+                            onChange={e => setComment(e.target.value)}
+                            placeholder="Add a personalized message..."
+                        />
                     </div>
                 </div>
+
+                <div className="p-6 border-t bg-muted/10 flex justify-between items-center gap-3">
+                    <Button variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
+                    <Button onClick={handleSend} disabled={sending} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
+                        {sending ? "Sending..." : "Send Quote"}
+                    </Button>
+                </div>
             </div>
 
-            <div className="p-4 border-t bg-muted/30 flex justify-end gap-2">
-                <Button variant="outline" onClick={onClose}>Cancel</Button>
-                <Button onClick={handleSend} disabled={sending}>
-                    {sending ? "Sending..." : "Send Quote"}
-                </Button>
+            {/* Right Panel: Live Preview */}
+            <div className="flex-1 bg-slate-50 relative flex flex-col h-full overflow-hidden">
+                <div className="absolute inset-0 p-8 flex flex-col">
+                    <div className="flex items-center justify-between mb-4 px-2">
+                        <h3 className="font-medium text-muted-foreground text-sm uppercase tracking-wider">Live Preview</h3>
+                        {loadingPreview && <span className="text-xs text-blue-600 animate-pulse font-medium">Updating...</span>}
+                    </div>
+
+                    <div className="flex-1 rounded-xl border shadow-sm bg-white overflow-hidden relative">
+                        {loadingPreview && html === "" && ( // Only show loader if no content yet
+                            <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-sm z-10">
+                                <div className="h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                        )}
+                        <iframe
+                            title="preview"
+                            srcDoc={html || "<div style='display:flex;height:100%;align-items:center;justify-content:center;color:#999;font-family:sans-serif;'>Generating preview...</div>"}
+                            className="w-full h-full border-none"
+                        // Removed pointer-events:none to allow scrolling the preview if needed
+                        />
+                    </div>
+                </div>
             </div>
         </div>
     )
