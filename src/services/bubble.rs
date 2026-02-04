@@ -9,6 +9,7 @@ pub struct BubbleService {
     api_token: String,
 }
 
+impl BubbleService {
     pub fn new() -> Result<Self, AppError> {
         let api_token = env::var("BUBBLE_API_TOKEN")
             .map_err(|_| AppError::Config("BUBBLE_API_TOKEN must be set".to_string()))?;
