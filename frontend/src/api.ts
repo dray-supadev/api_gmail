@@ -34,6 +34,7 @@ export const api = {
                 "Authorization": `Bearer ${token}`
             }
         });
+        if (res.status === 401) throw new Error("Unauthorized");
         if (!res.ok) throw new Error("Failed to fetch messages");
         const data = await res.json();
         return data.messages || [];
