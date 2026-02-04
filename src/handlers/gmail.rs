@@ -1,9 +1,7 @@
 use axum::{
     extract::{Path, Query, Json},
-    http::HeaderMap,
-    response::IntoResponse,
+    response::{IntoResponse},
 };
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use reqwest::Client;
 use crate::error::AppError;

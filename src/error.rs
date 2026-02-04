@@ -16,6 +16,8 @@ pub enum AppError {
     MissingToken,
     #[error("Internal error: {0}")]
     Internal(#[from] anyhow::Error),
+    #[error("Bad request: {0}")]
+    BadRequest(String),
 }
 
 impl IntoResponse for AppError {
@@ -37,6 +39,7 @@ impl IntoResponse for AppError {
                 }
             },
             AppError::MissingToken => (StatusCode::UNAUTHORIZED, "Missing x-google-token header"),
+            AppError::BadRequest(ref msg) => (StatusCode::BAD_REQUEST, msg.as_str()),
             _ => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
         };
 

@@ -75,7 +75,7 @@ impl BubbleService {
         // In a real app, a template engine like Askama or Handlebars is recommended, 
         // but for this specific template, string interpolation is fine.
         
-        format!(r#"<!DOCTYPE html>
+        format!(r##"<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8" />
@@ -150,7 +150,7 @@ impl BubbleService {
     </tr>
   </table>
 </body>
-</html>"#, 
+</html>"##, 
         heading_color=pdf_heading_color,
         heading_text_color=pdf_heading_text_color,
         company_name=company_name,

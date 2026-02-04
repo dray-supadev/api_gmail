@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde_json::json;
 use crate::error::AppError;
-use super::provider::{EmailProvider, CleanMessage, MessageSummary, AttachmentSummary, SendMessageRequest, ListParams};
+use super::provider::{EmailProvider, CleanMessage, SendMessageRequest, ListParams};
 
 pub struct OutlookProvider;
 
@@ -104,7 +104,7 @@ impl EmailProvider for OutlookProvider {
         })
     }
     
-    async fn get_thread(&self, token: &str, id: &str) -> Result<serde_json::Value, AppError> {
+    async fn get_thread(&self, _token: &str, _id: &str) -> Result<serde_json::Value, AppError> {
         // Outlook "conversationId" is not exactly threadId in Gmail sense, but close.
         Ok(json!({}))
     }
