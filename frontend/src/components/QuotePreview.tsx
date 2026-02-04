@@ -11,7 +11,6 @@ interface QuotePreviewProps {
     threadId?: string
     token: string
     provider: string
-    provider: string
     onClose: () => void
     className?: string
 }
