@@ -1,6 +1,5 @@
 (function () {
-    const SCRIPT_ID = "gmail-outlook-widget-script";
-    if (document.getElementById(SCRIPT_ID)) return;
+    if (window.GmailOutlookWidget) return;
 
     window.GmailOutlookWidget = {
         open: function (config) {
