@@ -1,11 +1,24 @@
-# Build Stage
-FROM rust:1.84 as builder
+# Stage 1: Build Frontend
+FROM node:20-slim as frontend-builder
+WORKDIR /app
+
+# Copy package files first to leverage cache
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm install
+
+# Copy source and build
+COPY frontend/ ./
+# Set correct path for vite build
+RUN npm run build
+
+# Stage 2: Build Backend
+FROM rust:1.84 as backend-builder
 WORKDIR /app
 COPY . .
 # Build for release
 RUN cargo build --release
 
-# Runtime Stage
+# Stage 3: Runtime
 FROM debian:bookworm-slim
 WORKDIR /app
 
@@ -13,12 +26,16 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # Copy the binary from builder
-COPY --from=builder /app/target/release/gmail-api-proxy /usr/local/bin/gmail-api-proxy
+COPY --from=backend-builder /app/target/release/gmail-api-proxy /usr/local/bin/gmail-api-proxy
+
+# Copy the frontend build artifacts
+# Make sure the directory structure matches what main.rs expects ("frontend/dist")
+COPY --from=frontend-builder /app/dist /app/frontend/dist
 
 # Set default environment
 ENV RUST_LOG=info
 ENV PORT=3000
 
-expose 3000
+EXPOSE 3000
 
 CMD ["gmail-api-proxy"]

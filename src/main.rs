@@ -26,16 +26,20 @@ async fn main() {
     // Build application router
     let app = Router::new()
         .route("/health", get(handlers::health::check))
-        .route("/api/messages", get(handlers::gmail::list_messages))
-        .route("/api/messages/:id", get(handlers::gmail::get_message))
-        .route("/api/messages/send", post(handlers::gmail::send_message))
-        .route("/api/threads/:thread_id", get(handlers::gmail::get_thread))
+        .route("/api/messages", get(handlers::api::list_messages))
+        .route("/api/messages/:id", get(handlers::api::get_message))
+        .route("/api/messages/send", post(handlers::api::send_message))
+        .route("/api/threads/:thread_id", get(handlers::api::get_thread))
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive()) // Customize this for production security
         .layer(axum::middleware::from_fn_with_state(
             config.clone(),
             middleware::auth::verify_api_key,
-        ));
+        ))
+        .fallback_service(
+             tower_http::services::ServeDir::new("frontend/dist")
+                 .not_found_service(tower_http::services::ServeFile::new("frontend/dist/index.html"))
+        );
 
     // Run server
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
