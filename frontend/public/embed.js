@@ -67,7 +67,14 @@
 
             // Append configuration params
             const url = new URL(iframe.src);
+
+            // Pass specific tokens if available
+            if (config.gmailToken) url.searchParams.set("gmailToken", config.gmailToken);
+            if (config.outlookToken) url.searchParams.set("outlookToken", config.outlookToken);
+
+            // Legacy single token support (optional, or if user only sends one)
             if (config.token) url.searchParams.set("token", config.token);
+
             if (config.provider) url.searchParams.set("provider", config.provider);
             if (config.quoteId) url.searchParams.set("quoteId", config.quoteId);
             if (config.bubbleVersion) url.searchParams.set("bubbleVersion", config.bubbleVersion);

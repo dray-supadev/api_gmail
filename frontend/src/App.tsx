@@ -8,7 +8,11 @@ import type { Message } from './api'
 
 function App() {
   const [provider, setProvider] = useState<"gmail" | "outlook">("gmail")
-  const [token, setToken] = useState<string>("")
+
+  // Store tokens for each provider
+  const [tokens, setTokens] = useState<{ gmail?: string, outlook?: string }>({})
+  const [legacyToken, setLegacyToken] = useState<string>("")
+
   const [quoteId, setQuoteId] = useState<string | null>(null)
   const [bubbleVersion, setBubbleVersion] = useState<string | undefined>(undefined)
 
@@ -16,11 +20,19 @@ function App() {
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
+  // Derived active token: uses specific provider token if available, falls back to legacy/generic token
+  const activeToken = provider === "gmail" ? (tokens.gmail || legacyToken) : (tokens.outlook || legacyToken)
+
   // Load config from URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const t = params.get("token");
-    if (t) setToken(t);
+
+    const gmailToken = params.get("gmailToken") || undefined;
+    const outlookToken = params.get("outlookToken") || undefined;
+    const t = params.get("token") || "";
+
+    setTokens({ gmail: gmailToken, outlook: outlookToken });
+    setLegacyToken(t);
 
     const p = params.get("provider");
     if (p === "gmail" || p === "outlook") setProvider(p);
@@ -31,13 +43,13 @@ function App() {
 
   // Fetch messages when token is available
   useEffect(() => {
-    if (!token) return;
+    if (!activeToken) return;
     setLoading(true);
-    api.listMessages(token, provider)
+    api.listMessages(activeToken, provider)
       .then(setMessages)
       .catch(err => console.error("Failed to load messages:", err))
       .finally(() => setLoading(false));
-  }, [token, provider]);
+  }, [activeToken, provider]);
 
   const selectedMessage = messages.find(m => m.id === selectedThreadId || m.thread_id === selectedThreadId);
 
@@ -62,13 +74,12 @@ function App() {
           <ThreadView threadId={selectedThreadId} />
         </div>
 
-        {/* Quote Preview Panel */}
-        {quoteId && token && (
+        {quoteId && activeToken && (
           <div className="shrink-0 h-full border-l shadow-2xl z-20">
             <QuotePreview
               quoteId={quoteId}
               version={bubbleVersion}
-              token={token}
+              token={activeToken}
               provider={provider}
               initialTo={selectedMessage?.from ? [selectedMessage.from.replace(/<.*>/, "").trim()] : []}
               initialSubject={selectedMessage?.subject ? `RE: ${selectedMessage.subject}` : "Quote Proposal"}
