@@ -61,12 +61,12 @@ function App() {
   const selectedMessage = messages.find(m => m.id === selectedThreadId || m.thread_id === selectedThreadId);
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans relative">
+    <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans">
       <Sidebar currentProvider={provider} onProviderChange={setProvider} />
 
-      {/* Messages */}
+      {/* Messages List - Always visible */}
       {loading ? (
-        <div className="w-[400px] border-r flex items-center justify-center text-muted-foreground">Loading messages...</div>
+        <div className="w-[350px] border-r flex items-center justify-center text-muted-foreground bg-slate-50">Loading messages...</div>
       ) : (
         <MessageList
           messages={messages}
@@ -75,31 +75,48 @@ function App() {
         />
       )}
 
-      {/* Main View */}
-      <div className="flex-1 flex overflow-hidden relative">
-        <div className="flex-1 min-w-0">
-          <ThreadView threadId={selectedThreadId} />
-        </div>
-      </div>
+      {/* Main View Area */}
+      <div className="flex-1 flex flex-col overflow-hidden relative bg-white">
+        {/* 
+             MODE HANDLING:
+             1. If quoteId is set: We are in "Quote Composer Mode".
+                - If no message selected: Show "Select conversation".
+                - If message selected: Show QuotePreview (Composer) pre-filled.
+             2. If no quoteId: Standard "Reading Mode".
+                - Show ThreadView.
+          */}
 
-      {/* Quote Preview Modal Overlay */}
-      {quoteId && activeToken && (
-        <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-8">
-          <div className="w-full h-full max-w-6xl shadow-2xl rounded-lg overflow-hidden border ring-1 ring-border">
+        {quoteId && activeToken ? (
+          // QUOTE MODE
+          selectedThreadId && selectedMessage ? (
             <QuotePreview
+              key={selectedThreadId} // Re-mount when thread changes to reset/update fields
               quoteId={quoteId}
               version={bubbleVersion}
               token={activeToken}
               provider={provider}
-              initialTo={selectedMessage?.from ? [selectedMessage.from.replace(/<.*>/, "").trim()] : []}
-              initialSubject={selectedMessage?.subject ? `RE: ${selectedMessage.subject}` : "Quote Proposal"}
-              threadId={selectedMessage?.thread_id}
+              initialTo={selectedMessage.from ? [selectedMessage.from.replace(/<.*>/, "").trim()] : []}
+              initialSubject={selectedMessage.subject ? `RE: ${selectedMessage.subject}` : "Quote Proposal"}
+              threadId={selectedMessage.thread_id}
               onClose={() => setQuoteId(null)}
               className="w-full h-full border-none shadow-none"
             />
-          </div>
-        </div>
-      )}
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground space-y-4">
+              <div className="p-4 rounded-full bg-slate-100">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <p className="font-medium text-lg">Select conversation to continue</p>
+              <p className="text-sm max-w-xs text-center">Choose an email thread from the left to reply with a quote proposal.</p>
+            </div>
+          )
+        ) : (
+          // NORMAL READING MODE
+          <ThreadView threadId={selectedThreadId} />
+        )}
+      </div>
     </div>
   )
 }

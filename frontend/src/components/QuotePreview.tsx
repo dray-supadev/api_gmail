@@ -80,80 +80,75 @@ export function QuotePreview({
     }
 
     return (
-        <div className={cn("flex flex-col md:flex-row bg-background h-full shadow-xl z-10 overflow-hidden", className)}>
-            {/* Left Panel: Form & Controls */}
-            <div className="w-full md:w-[400px] flex flex-col border-r bg-card z-20 shadow-sm">
-                <div className="p-6 border-b flex justify-between items-start">
-                    <div>
-                        <h2 className="font-semibold text-xl tracking-tight">Send Quote</h2>
-                        <p className="text-sm text-muted-foreground mt-1">Compose your quote proposal.</p>
-                    </div>
-                    <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted transition-colors">
-                        <span className="sr-only">Close</span>
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
+        <div className={cn("flex flex-col h-full bg-white relative", className)}>
+            {/* Top Bar: Controls & Inputs */}
+            <div className="flex-none p-6 pb-2 border-b space-y-4">
+                <div className="flex justify-between items-center mb-2">
+                    <h2 className="font-semibold text-lg">New Quote Proposal</h2>
+                    <Button variant="ghost" size="sm" onClick={onClose}>
+                        <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </Button>
                 </div>
 
-                <div className="p-6 space-y-5 overflow-y-auto flex-1">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">To</label>
+                <div className="grid gap-4 max-w-3xl">
+                    <div className="grid grid-cols-[60px_1fr] items-center gap-2">
+                        <label className="text-sm font-medium text-muted-foreground text-right">To</label>
                         <input
-                            className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                             value={to}
                             onChange={e => setTo(e.target.value)}
                             placeholder="recipient@example.com"
                         />
                     </div>
+                    {/* Placeholder for CC if needed later */}
 
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium leading-none">Subject</label>
+                    <div className="grid grid-cols-[60px_1fr] items-center gap-2">
+                        <label className="text-sm font-medium text-muted-foreground text-right">Subject</label>
                         <input
-                            className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                             value={subject}
                             onChange={e => setSubject(e.target.value)}
                         />
                     </div>
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium leading-none">Comment</label>
-                        <textarea
-                            className="flex min-h-[120px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                            value={comment}
-                            onChange={e => setComment(e.target.value)}
-                            placeholder="Add a personalized message..."
-                        />
-                    </div>
-                </div>
-
-                <div className="p-6 border-t bg-muted/10 flex justify-between items-center gap-3">
-                    <Button variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
-                    <Button onClick={handleSend} disabled={sending} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
-                        {sending ? "Sending..." : "Send Quote"}
-                    </Button>
                 </div>
             </div>
 
-            {/* Right Panel: Live Preview */}
-            <div className="flex-1 bg-slate-50 relative flex flex-col h-full overflow-hidden">
-                <div className="absolute inset-0 p-8 flex flex-col">
-                    <div className="flex items-center justify-between mb-4 px-2">
-                        <h3 className="font-medium text-muted-foreground text-sm uppercase tracking-wider">Live Preview</h3>
-                        {loadingPreview && <span className="text-xs text-blue-600 animate-pulse font-medium">Updating...</span>}
+            {/* Scrollable Content Area: Comment + Preview */}
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+                <div className="max-w-4xl mx-auto space-y-6">
+                    {/* Comment Input */}
+                    <div className="bg-white p-4 rounded-lg border shadow-sm space-y-2">
+                        <label className="text-sm font-semibold text-slate-700">Message / Comment</label>
+                        <textarea
+                            className="flex min-h-[100px] w-full rounded-md border-0 bg-slate-50 px-3 py-2 text-sm focus-visible:ring-1 ring-blue-200 resize-y"
+                            value={comment}
+                            onChange={e => setComment(e.target.value)}
+                            placeholder="Type your message to the customer here..."
+                        />
                     </div>
 
-                    <div className="flex-1 rounded-xl border shadow-sm bg-white overflow-hidden relative">
-                        {loadingPreview && html === "" && (
+                    {/* Preview Card */}
+                    <div className="relative min-h-[500px] border rounded-lg bg-white shadow-sm overflow-hidden">
+                        {loadingPreview && (
                             <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-sm z-10">
                                 <div className="h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                             </div>
                         )}
                         <iframe
                             title="preview"
-                            srcDoc={html || "<div style='display:flex;height:100%;align-items:center;justify-content:center;color:#999;font-family:sans-serif;'>Generating preview...</div>"}
-                            className="w-full h-full border-none"
+                            srcDoc={html || ""}
+                            className="w-full h-[800px] border-none"
                         />
                     </div>
                 </div>
+            </div>
+
+            {/* Bottom Bar: Send Action */}
+            <div className="flex-none p-4 border-t bg-white flex justify-end items-center gap-3">
+                <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                <Button onClick={handleSend} disabled={sending} className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px]">
+                    {sending ? <span className="flex items-center gap-2"><div className="h-4 w-4 border-2 border-white/50 border-t-white rounded-full animate-spin"></div> Sending...</span> : "Send Quote"}
+                </Button>
             </div>
         </div>
     )
