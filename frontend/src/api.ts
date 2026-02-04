@@ -56,7 +56,10 @@ export const api = {
             ...(params.comment ? { comment: params.comment } : {})
         });
         const res = await fetch(`${API_BASE}/api/quote/preview?${query}`);
-        if (!res.ok) throw new Error("Failed to preview quote");
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`Failed to preview: ${res.status} ${text}`);
+        }
         return await res.json();
     },
 
