@@ -97,7 +97,7 @@ pub struct QuotePreviewParams {
 pub async fn preview_quote(
     Query(params): Query<QuotePreviewParams>,
 ) -> Result<impl IntoResponse, AppError> {
-    let bubble_service = BubbleService::new();
+    let bubble_service = BubbleService::new()?;
     
     // Fetch data
     let quote_data = bubble_service.fetch_quote(params.version.as_deref(), &params.quote_id).await?;
@@ -126,7 +126,7 @@ pub async fn send_quote_email(
     let token = get_token(&headers)?;
     
     // 1. Setup Services
-    let bubble_service = BubbleService::new();
+    let bubble_service = BubbleService::new()?;
     let n8n_service = N8NService::new();
     
     // 2. Fetch Quote Data

@@ -9,17 +9,18 @@ pub struct BubbleService {
     api_token: String,
 }
 
-impl BubbleService {
-    pub fn new() -> Self {
-        let api_token = env::var("BUBBLE_API_TOKEN").expect("BUBBLE_API_TOKEN must be set");
+    pub fn new() -> Result<Self, AppError> {
+        let api_token = env::var("BUBBLE_API_TOKEN")
+            .map_err(|_| AppError::Config("BUBBLE_API_TOKEN must be set".to_string()))?;
+        
         // Default to the provided version for now if not overridden, but the method accepts version
         let base_url = "https://app.drayinsight.com".to_string(); 
 
-        Self {
+        Ok(Self {
             client: Client::new(),
             base_url,
             api_token,
-        }
+        })
     }
 
     pub async fn fetch_quote(&self, version: Option<&str>, quote_id: &str) -> Result<Value, AppError> {
