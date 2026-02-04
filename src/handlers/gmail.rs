@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, Query, Json},
+    extract::{Json},
     response::{IntoResponse},
 };
 use serde_json::json;
