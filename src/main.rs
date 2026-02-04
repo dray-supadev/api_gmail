@@ -35,10 +35,6 @@ async fn main() {
         .route("/api/quote/send", post(handlers::api::send_quote_email))
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive()) // Customize this for production security
-        .layer(axum::middleware::from_fn_with_state(
-            config.clone(),
-            middleware::auth::verify_api_key,
-        ))
         .fallback_service(
              tower_http::services::ServeDir::new("frontend/dist")
                  .not_found_service(tower_http::services::ServeFile::new("frontend/dist/index.html"))
