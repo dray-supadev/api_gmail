@@ -231,7 +231,16 @@ impl BubbleService {
             .await?;
 
         if !res.status().is_success() {
+             let status = res.status();
              let error_text = res.text().await.unwrap_or_default();
+             
+             // Log the error for debugging
+             tracing::error!("Bubble API Error ({}): {}", status, error_text);
+
+             if status.is_client_error() {
+                 return Err(AppError::BadRequest(format!("Bubble Validation Error: {}", error_text)));
+             }
+             
              return Err(AppError::BadGateway(format!("Bubble Preview WF failed: {}", error_text)));
         }
 
