@@ -73,7 +73,6 @@ export function QuotePreview({
                 thread_id: threadId,
                 comment
             })
-            alert("Quote sent successfully!")
             onClose()
         } catch (e) {
             console.error(e)
