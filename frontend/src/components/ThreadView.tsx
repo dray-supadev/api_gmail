@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button"
-import { Reply, MoreVertical, Archive, Star } from "lucide-react"
+import { MoreVertical, Archive, Star } from "lucide-react"
 
 interface ThreadViewProps {
     threadId: string | null
