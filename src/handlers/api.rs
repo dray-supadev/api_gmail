@@ -123,6 +123,7 @@ pub struct SendQuoteRequest {
     pub subject: String,
     pub thread_id: Option<String>,
     pub comment: Option<String>,
+    pub pdf_export_settings: Option<Vec<String>>,
     pub html_body: Option<String>,
 }
 
