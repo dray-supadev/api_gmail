@@ -433,37 +433,34 @@ impl EmailProvider for GmailProvider {
         
         let has_attachments = req.attachments.as_ref().map_or(false, |atts| !atts.is_empty());
 
-        if has_attachments {
-            email_content.push_str("MIME-Version: 1.0\r\n");
-            email_content.push_str(&format!("Content-Type: multipart/mixed; boundary=\"{}\"\r\n\r\n", boundary));
-            
-            // HTML Part
-            email_content.push_str(&format!("--{}\r\n", boundary));
-            email_content.push_str("Content-Type: text/html; charset=utf-8\r\n");
-            email_content.push_str("Content-Disposition: inline\r\n\r\n");
-            email_content.push_str(&req.body);
-            email_content.push_str("\r\n\r\n");
+        // Always use multipart/mixed for consistency and correct rendering
+        email_content.push_str("MIME-Version: 1.0\r\n");
+        email_content.push_str(&format!("Content-Type: multipart/mixed; boundary=\"{}\"\r\n\r\n", boundary));
+        
+        // HTML Part
+        email_content.push_str(&format!("--{}\r\n", boundary));
+        email_content.push_str("Content-Type: text/html; charset=utf-8\r\n");
+        email_content.push_str("Content-Disposition: inline\r\n\r\n");
+        email_content.push_str(&req.body);
+        email_content.push_str("\r\n\r\n");
 
-            // Attachments
-            if let Some(attachments) = &req.attachments {
-                use base64::{Engine as _, engine::general_purpose::STANDARD};
-                for att in attachments {
-                    email_content.push_str(&format!("--{}\r\n", boundary));
-                    email_content.push_str(&format!("Content-Type: {}; name=\"{}\"\r\n", att.mime_type, att.filename));
-                    email_content.push_str(&format!("Content-Disposition: attachment; filename=\"{}\"\r\n", att.filename));
-                    email_content.push_str("Content-Transfer-Encoding: base64\r\n\r\n");
-                    
-                    let encoded = STANDARD.encode(&att.content);
-                    email_content.push_str(&encoded);
-                    email_content.push_str("\r\n\r\n");
-                }
+        // Attachments
+        if let Some(attachments) = &req.attachments {
+            use base64::{Engine as _, engine::general_purpose::STANDARD};
+            for att in attachments {
+                email_content.push_str(&format!("--{}\r\n", boundary));
+                email_content.push_str(&format!("Content-Type: {}; name=\"{}\"\r\n", att.mime_type, att.filename));
+                email_content.push_str(&format!("Content-Disposition: attachment; filename=\"{}\"\r\n", att.filename));
+                email_content.push_str("Content-Transfer-Encoding: base64\r\n\r\n");
+                
+                let encoded = STANDARD.encode(&att.content);
+                email_content.push_str(&encoded);
+                email_content.push_str("\r\n\r\n");
             }
-            email_content.push_str(&format!("--{}--", boundary));
-        } else {
-             email_content.push_str("MIME-Version: 1.0\r\n");
-             email_content.push_str("Content-Type: text/html; charset=utf-8\r\n\r\n");
-             email_content.push_str(&req.body);
         }
+        
+        // End Boundary
+        email_content.push_str(&format!("--{}--", boundary));
 
         let raw_encoded = URL_SAFE_NO_PAD.encode(email_content.as_bytes());
 
