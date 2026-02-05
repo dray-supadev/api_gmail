@@ -15,7 +15,7 @@ impl BubbleService {
             .map_err(|_| AppError::Config("BUBBLE_API_TOKEN must be set".to_string()))?;
         
         // Default to the provided version for now if not overridden, but the method accepts version
-        let base_url = "https://app.drayinsight.com".to_string(); 
+        let base_url = env::var("BUBBLE_APP_URL").unwrap_or_else(|_| "https://revup-22775.bubbleapps.io".to_string()); 
 
         Ok(Self {
             client: Client::new(),
