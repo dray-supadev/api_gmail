@@ -59,8 +59,8 @@ export function ThreadView({ threadId }: ThreadViewProps) {
                 </div>
             </div>
 
-            {/* Quick Reply */}
-            <div className="p-4 border-t bg-card">
+            {/* Quick Reply (Hidden for now to avoid confusion with Quote Workflow) */}
+            {/* <div className="p-4 border-t bg-card">
                 <div className="border rounded-md p-2 bg-background focus-within:ring-2 ring-primary">
                     <textarea
                         className="w-full resize-none outline-none bg-transparent min-h-[80px]"
@@ -68,7 +68,7 @@ export function ThreadView({ threadId }: ThreadViewProps) {
                     />
                     <div className="flex justify-between items-center mt-2">
                         <div className="flex gap-2">
-                            {/* formatting tools */}
+                            
                         </div>
                         <Button size="sm">
                             <Reply className="w-4 h-4 mr-2" />
@@ -76,7 +76,7 @@ export function ThreadView({ threadId }: ThreadViewProps) {
                         </Button>
                     </div>
                 </div>
-            </div>
+            </div> */}
         </div>
     )
 }
