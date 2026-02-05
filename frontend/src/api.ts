@@ -53,19 +53,14 @@ export const api = {
     },
 
     async previewQuote(params: QuotePreviewParams) {
-        const query = new URLSearchParams({
-            quote_id: params.quote_id,
-            ...(params.version ? { version: params.version } : {}),
-            ...(params.comment ? { comment: params.comment } : {})
+        const res = await fetch(`${API_BASE}/api/quote/preview`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(params)
         });
 
-        // Add array items manually since URLSearchParams doesn't handle arrays standardly for all frameworks
-        // Axum handles `key=val1&key=val2`
-        if (params.pdf_export_settings) {
-            params.pdf_export_settings.forEach(s => query.append("pdf_export_settings", s));
-        }
-
-        const res = await fetch(`${API_BASE}/api/quote/preview?${query}`);
         if (!res.ok) {
             const text = await res.text();
             throw new Error(`Failed to preview: ${res.status} ${text}`);

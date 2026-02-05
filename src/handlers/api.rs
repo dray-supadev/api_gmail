@@ -96,7 +96,7 @@ pub struct QuotePreviewParams {
 }
 
 pub async fn preview_quote(
-    Query(params): Query<QuotePreviewParams>,
+    Json(params): Json<QuotePreviewParams>,
 ) -> Result<impl IntoResponse, AppError> {
     let bubble_service = BubbleService::new()?;
     // Old logic: fetch raw data + local HTML generation

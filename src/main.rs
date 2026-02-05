@@ -31,7 +31,7 @@ async fn main() {
         .route("/api/messages/:id", get(handlers::api::get_message))
         .route("/api/messages/send", post(handlers::api::send_message))
         .route("/api/threads/:thread_id", get(handlers::api::get_thread))
-        .route("/api/quote/preview", get(handlers::api::preview_quote))
+        .route("/api/quote/preview", post(handlers::api::preview_quote))
         .route("/api/quote/send", post(handlers::api::send_quote_email))
         // Explicitly serve embed.js to diagnose ServeDir issues
         .route("/embed.js", axum::routing::get_service(tower_http::services::ServeFile::new("frontend/dist/embed.js")))
