@@ -460,6 +460,7 @@ impl EmailProvider for GmailProvider {
             }
             email_content.push_str(&format!("--{}--", boundary));
         } else {
+             email_content.push_str("MIME-Version: 1.0\r\n");
              email_content.push_str("Content-Type: text/html; charset=utf-8\r\n\r\n");
              email_content.push_str(&req.body);
         }
