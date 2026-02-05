@@ -28,7 +28,8 @@
                 container.style.overflow = "hidden";
                 container.style.backgroundColor = "white";
 
-                // Add close button
+                // Close button removed in favor of internal app close button
+                /*
                 const closeBtn = document.createElement("button");
                 closeBtn.innerHTML = "&times;";
                 closeBtn.style.position = "absolute";
@@ -42,6 +43,7 @@
                     document.body.removeChild(container);
                 };
                 container.appendChild(closeBtn);
+                */
 
                 document.body.appendChild(container);
             }
