@@ -89,4 +89,13 @@
             container.appendChild(iframe);
         }
     };
+    // Listen for close message from the iframe
+    window.addEventListener("message", function (event) {
+        if (event.data && event.data.type === "GMAIL_WIDGET_CLOSE") {
+            const container = document.getElementById("gmail-outlook-widget-container");
+            if (container) {
+                document.body.removeChild(container);
+            }
+        }
+    });
 })();

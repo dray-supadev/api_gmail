@@ -128,7 +128,10 @@ function App() {
               ] : []}
               initialSubject={selectedMessage.subject ? `RE: ${selectedMessage.subject}` : "Quote Proposal"}
               threadId={selectedMessage.thread_id}
-              onClose={() => setQuoteId(null)}
+              onClose={() => {
+                setQuoteId(null)
+                window.parent.postMessage({ type: 'GMAIL_WIDGET_CLOSE' }, '*')
+              }}
               className="w-full h-full border-none shadow-none"
             />
           ) : (
