@@ -159,19 +159,12 @@ pub async fn send_quote_email(
         _ => return Err(AppError::BadRequest("Invalid provider. Use 'gmail' or 'outlook'".to_string())),
     };
     
-    // 5. Send Email
-    let attachment = super::provider::Attachment {
-        filename, 
-        content: pdf_bytes,
-        mime_type: "application/pdf".to_string(),
-    };
-    
     let send_req = SendMessageRequest {
         to: req.to,
         subject: req.subject,
         body: html_body, 
         thread_id: req.thread_id,
-        attachments: Some(vec![attachment]),
+        attachments: None, // No PDF attachment
     };
     
     let result = provider_instance.send_message(token, send_req).await?;
