@@ -123,7 +123,7 @@ pub struct SendQuoteRequest {
     pub subject: String,
     pub thread_id: Option<String>,
     pub comment: Option<String>,
-    pub pdf_export_settings: Option<Vec<String>>,
+    pub html_body: Option<String>,
 }
 
 pub async fn send_quote_email(
@@ -138,16 +138,14 @@ pub async fn send_quote_email(
     let (pdf_bytes, filename) = bubble_service.generate_pdf_via_workflow(
         &req.quote_id, 
         req.version.as_deref(), 
-        req.pdf_export_settings
+        req.pdf_export_settings.clone()
     ).await?;
     
-    // 3. Generate HTML Body (Simple notification)
-    // We can still fetch quote data for "Quote Proposal from..." if we want, or just use a generic body.
-    // User didn't specify body changes, but previously we generated HTML from data.
-    // Let's keep it simple: "Attached is the quote..."
-    // Or if we want to be safe, we can still fetch quote details for the body text IF needed.
-    // For now, let's use the comment as the body or a default message.
-    let html_body = if let Some(comment) = &req.comment {
+    // 3. Determine HTML Body
+    // If frontend passed the preview HTML, use it. Otherwise fall back to simple message.
+    let html_body = if let Some(body) = req.html_body {
+        body
+    } else if let Some(comment) = &req.comment {
         format!("<p>{}</p>", comment.replace("\n", "<br>"))
     } else {
         "<p>Please find the attached quote proposal.</p>".to_string()

@@ -112,7 +112,8 @@ export function QuotePreview({
                 subject,
                 thread_id: threadId,
                 comment,
-                pdf_export_settings: pdfExportSettings
+                pdf_export_settings: pdfExportSettings,
+                html_body: previewHtml
             })
             onClose()
         } catch (e) {
