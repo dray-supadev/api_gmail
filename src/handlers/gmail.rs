@@ -434,35 +434,21 @@ impl EmailProvider for GmailProvider {
         let has_attachments = req.attachments.as_ref().map_or(false, |atts| !atts.is_empty());
 
         if has_attachments {
-            let boundary_mixed = "boundary_mixed_1234567890";
-            let boundary_alt = "boundary_alt_0987654321";
-
             email_content.push_str("MIME-Version: 1.0\r\n");
-            email_content.push_str(&format!("Content-Type: multipart/mixed; boundary=\"{}\"\r\n\r\n", boundary_mixed));
+            email_content.push_str(&format!("Content-Type: multipart/mixed; boundary=\"{}\"\r\n\r\n", boundary));
             
-            // --- Part 1: multipart/alternative (Body) ---
-            email_content.push_str(&format!("--{}\r\n", boundary_mixed));
-            email_content.push_str(&format!("Content-Type: multipart/alternative; boundary=\"{}\"\r\n\r\n", boundary_alt));
-            
-            // Part 1.1: text/plain (Fallback)
-            email_content.push_str(&format!("--{}\r\n", boundary_alt));
-            email_content.push_str("Content-Type: text/plain; charset=utf-8\r\n\r\n");
-            email_content.push_str("Please view this email in an HTML-compatible client.\r\n");
-            
-            // Part 1.2: text/html (Main Content)
-            email_content.push_str(&format!("--{}\r\n", boundary_alt));
-            email_content.push_str("Content-Type: text/html; charset=utf-8\r\n\r\n");
+            // HTML Part
+            email_content.push_str(&format!("--{}\r\n", boundary));
+            email_content.push_str("Content-Type: text/html; charset=utf-8\r\n");
+            email_content.push_str("Content-Disposition: inline\r\n\r\n");
             email_content.push_str(&req.body);
             email_content.push_str("\r\n\r\n");
-            
-            // End multipart/alternative
-            email_content.push_str(&format!("--{}--\r\n\r\n", boundary_alt));
 
-            // --- Part 2: Attachments ---
+            // Attachments
             if let Some(attachments) = &req.attachments {
                 use base64::{Engine as _, engine::general_purpose::STANDARD};
                 for att in attachments {
-                    email_content.push_str(&format!("--{}\r\n", boundary_mixed));
+                    email_content.push_str(&format!("--{}\r\n", boundary));
                     email_content.push_str(&format!("Content-Type: {}; name=\"{}\"\r\n", att.mime_type, att.filename));
                     email_content.push_str(&format!("Content-Disposition: attachment; filename=\"{}\"\r\n", att.filename));
                     email_content.push_str("Content-Transfer-Encoding: base64\r\n\r\n");
@@ -472,8 +458,7 @@ impl EmailProvider for GmailProvider {
                     email_content.push_str("\r\n\r\n");
                 }
             }
-            // End multipart/mixed
-            email_content.push_str(&format!("--{}--", boundary_mixed));
+            email_content.push_str(&format!("--{}--", boundary));
         } else {
              email_content.push_str("Content-Type: text/html; charset=utf-8\r\n\r\n");
              email_content.push_str(&req.body);
