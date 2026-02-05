@@ -163,7 +163,7 @@ pub async fn send_quote_email(
     let attachment = super::provider::Attachment {
         filename, 
         content: pdf_bytes,
-        mime_type: "application/pdf".to_string(),
+        mime_type: "application/octet-stream".to_string(),
     };
     
     let send_req = SendMessageRequest {
