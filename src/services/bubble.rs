@@ -26,7 +26,7 @@ impl BubbleService {
 
     pub async fn fetch_quote(&self, version: Option<&str>, quote_id: &str) -> Result<Value, AppError> {
         let version_path = version.unwrap_or("version-test"); // Default for safety, but should be passed
-        let url = format!("{}/{}/api/1.1/obj/Quote/{}", self.base_url, version_path, quote_id); // Dynamic version URL
+        let url = format!("{}/{}/api/1.1/obj/quote_details/{}", self.base_url, version_path, quote_id); // Dynamic version URL
 
         let res = self.client.get(&url)
             .bearer_auth(&self.api_token)
