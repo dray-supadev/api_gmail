@@ -28,31 +28,31 @@ export function QuotePreview({
     pdfExportSettings = [],
     className
 }: QuotePreviewProps) {
-    const [html, setHtml] = useState<string>("")
-    const [comment, setComment] = useState("")
-    const [to, setTo] = useState(initialTo.join(", "))
-    const [subject, setSubject] = useState(initialSubject)
-    const [sending, setSending] = useState(false)
-    const [loadingPreview, setLoadingPreview] = useState(false)
+    const [templateHtml, setTemplateHtml] = useState<string>("")
 
-    // Debounced preview update could be better, but for now fetch on effect
+    // Derived state for the actual HTML in the iframe
+    const previewHtml = templateHtml.replace(/<comment>/g, comment.replace(/\n/g, "<br>"))
+
+    // Fetch template HTML (only when quote or settings change)
     useEffect(() => {
         const fetchPreview = async () => {
             setLoadingPreview(true)
             try {
+                // Pass empty comment or dummy placeholder to get the template
                 const res = await api.previewQuote({
                     quote_id: quoteId,
                     version,
-                    comment,
+                    comment: "", // We don't send comment to backend anymore for preview generation
                     pdf_export_settings: pdfExportSettings
                 })
-                setHtml(res.html)
-                if (res.body && !comment) { // Only set body if comment is empty (first load) to avoid overwriting user edits
+                setTemplateHtml(res.html)
+                // If backend provides a default body (email template), use it if user input is empty
+                if (res.body && !comment) {
                     setComment(res.body)
                 }
             } catch (e) {
                 console.error("Preview generation failed:", e)
-                setHtml(`<div class="p-4 text-red-500 flex flex-col items-center justify-center h-full">
+                setTemplateHtml(`<div class="p-4 text-red-500 flex flex-col items-center justify-center h-full">
                     <p class="font-bold">Failed to load preview</p>
                     <p class="text-sm mt-2 text-gray-500">${e instanceof Error ? e.message : "Unknown error"}</p>
                     <button onclick="window.location.reload()" class="mt-4 px-3 py-1 bg-red-100 rounded text-xs hover:bg-red-200">Retry</button>
@@ -62,10 +62,9 @@ export function QuotePreview({
             }
         }
 
-        // Simple debounce
-        const timer = setTimeout(fetchPreview, 500)
-        return () => clearTimeout(timer)
-    }, [quoteId, version, pdfExportSettings]) // Trigger when these change. Removed 'comment' dependency to prevent loop/re-fetch on every keystroke if we are now using Bubble for preview. 
+        // Debounce only on settings change if needed, but for now simple fetch
+        fetchPreview()
+    }, [quoteId, version, pdfExportSettings]) // Trigger when these change. Removed 'comment'. 
     // Wait, if we use Bubble for preview HTML which depends on comment (comment box in PDF), we DO need to send comment.
     // If you want realtime preview update as user types comment:
     // Keep 'comment' in dep array.
@@ -175,7 +174,7 @@ export function QuotePreview({
                         )}
                         <iframe
                             title="preview"
-                            srcDoc={html || ""}
+                            srcDoc={previewHtml || ""}
                             className="w-full h-[800px] border-none"
                         />
                     </div>
