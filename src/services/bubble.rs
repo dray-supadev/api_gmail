@@ -221,7 +221,7 @@ impl BubbleService {
         let settings_list = settings.unwrap_or_default();
 
         let payload = serde_json::json!({
-            "quote_id": quote_id,
+            "quote": quote_id,
             "pdfExportSettings": settings_list
         });
 
