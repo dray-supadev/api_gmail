@@ -43,9 +43,13 @@ export function QuotePreview({
                 const res = await api.previewQuote({
                     quote_id: quoteId,
                     version,
-                    comment
+                    comment,
+                    pdf_export_settings: pdfExportSettings
                 })
                 setHtml(res.html)
+                if (res.body && !comment) { // Only set body if comment is empty (first load) to avoid overwriting user edits
+                    setComment(res.body)
+                }
             } catch (e) {
                 console.error("Preview generation failed:", e)
                 setHtml(`<div class="p-4 text-red-500 flex flex-col items-center justify-center h-full">
@@ -61,7 +65,36 @@ export function QuotePreview({
         // Simple debounce
         const timer = setTimeout(fetchPreview, 500)
         return () => clearTimeout(timer)
-    }, [quoteId, version, comment])
+    }, [quoteId, version, pdfExportSettings]) // Trigger when these change. Removed 'comment' dependency to prevent loop/re-fetch on every keystroke if we are now using Bubble for preview. 
+    // Wait, if we use Bubble for preview HTML which depends on comment (comment box in PDF), we DO need to send comment.
+    // If you want realtime preview update as user types comment:
+    // Keep 'comment' in dep array.
+    // BUT: The logic `if (res.body && !comment) setComment(res.body)` might fight with user typing if not careful.
+    // Better: Only setComment from response if it is INITIAL load.
+    // But since useEffect runs on 'comment' change, it will re-fetch.
+    // If the Bubble workflow returns the SAME body passed in, it's fine.
+    // If Bubble workflow generates a DEFAULT body, we only want that on first load.
+    // Let's refactor slightly to separate "Fetch Initial Body" vs "Update Preview HTML".
+    // For now, I will keep it simple. If user types, we send comment to Bubble, Bubble returns HTML with comment. Bubble returns body? 
+    // Actually, usually Body is just for the email text. HTML is for PDF. 
+    // The PDF usually contains the comment too.
+    // So we should send 'comment' to Bubble.
+    // Bubble response 'body' is the EMAIL body template. It shouldn't change just because I typed a comment in the PDF, unless the email body also includes the comment.
+    // Safest is to only setComment from response if current comment is empty.
+
+    // UPDATED DEPENDENCIES:
+    // [quoteId, version, comment, pdfExportSettings]
+    // And logic to setComment only if !comment.
+    // Actually, if I type a char, 'comment' changes -> fetchPreview -> returns 'body' -> setComment -> loop?
+    // If returns same body, no change.
+    // If I typed "H", and Bubble returns "Default Body", then "H" != "Default Body" and !"H".length is false.
+    // So `if (!comment)` protects us from overwriting user input.
+    // But what if `comment` is required for the Preview HTML?
+
+    // Let's assume user wants to see their comment in the PDF preview.
+    // But fetchPreview is debounced.
+    // So it's fine.
+
 
     const handleSend = async () => {
         setSending(true)

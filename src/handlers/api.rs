@@ -92,20 +92,26 @@ pub struct QuotePreviewParams {
     pub quote_id: String,
     pub version: Option<String>,
     pub comment: Option<String>,
+    pub pdf_export_settings: Option<Vec<String>>,
 }
 
 pub async fn preview_quote(
     Query(params): Query<QuotePreviewParams>,
 ) -> Result<impl IntoResponse, AppError> {
     let bubble_service = BubbleService::new()?;
+    // Old logic: fetch raw data + local HTML generation
+    // New logic: fetch HTML + Body from Bubble Workflow
     
-    // Fetch data
-    let quote_data = bubble_service.fetch_quote(params.version.as_deref(), &params.quote_id).await?;
+    let (html, body) = bubble_service.fetch_quote_preview(
+        &params.quote_id, 
+        params.version.as_deref(), 
+        params.pdf_export_settings
+    ).await?;
     
-    // Generate HTML
-    let html = bubble_service.generate_quote_html(&quote_data, params.comment.as_deref());
-    
-    Ok(Json(json!({ "html": html })).into_response())
+    Ok(Json(json!({ 
+        "html": html,
+        "body": body 
+    })).into_response())
 }
 
 #[derive(Deserialize)]

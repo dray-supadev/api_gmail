@@ -13,6 +13,7 @@ export interface QuotePreviewParams {
     quote_id: string;
     version?: string;
     comment?: string;
+    pdf_export_settings?: string[];
 }
 
 export interface SendQuoteRequest {
@@ -57,6 +58,13 @@ export const api = {
             ...(params.version ? { version: params.version } : {}),
             ...(params.comment ? { comment: params.comment } : {})
         });
+
+        // Add array items manually since URLSearchParams doesn't handle arrays standardly for all frameworks
+        // Axum handles `key=val1&key=val2`
+        if (params.pdf_export_settings) {
+            params.pdf_export_settings.forEach(s => query.append("pdf_export_settings", s));
+        }
+
         const res = await fetch(`${API_BASE}/api/quote/preview?${query}`);
         if (!res.ok) {
             const text = await res.text();

@@ -211,5 +211,37 @@ impl BubbleService {
         comment_section=comment_html,
         logo_html=if !logo_url.is_empty() { format!(r#"<img src="{}" alt="Company Logo" style="object-fit: contain; max-width: 100px; height: auto; margin-bottom: 10px;">"#, logo_url) } else { "".to_string() }
         )
+        )
+    }
+
+    pub async fn fetch_quote_preview(&self, quote_id: &str, version: Option<&str>, settings: Option<Vec<String>>) -> Result<(String, Option<String>), AppError> {
+        let version_path = version.unwrap_or("version-test");
+        let url = format!("{}/{}/api/1.1/wf/get_quote_preview", self.base_url, version_path);
+        
+        let settings_list = settings.unwrap_or_default();
+
+        let payload = serde_json::json!({
+            "quote_id": quote_id,
+            "pdfExportSettings": settings_list
+        });
+
+        let res = self.client.post(&url)
+            .bearer_auth(&self.api_token)
+            .json(&payload)
+            .send()
+            .await?;
+
+        if !res.status().is_success() {
+             let error_text = res.text().await.unwrap_or_default();
+             return Err(AppError::BadGateway(format!("Bubble Preview WF failed: {}", error_text)));
+        }
+
+        let body: Value = res.json().await?;
+        let response = &body["response"];
+        
+        let html = response["html"].as_str().unwrap_or("").to_string();
+        let email_body = response["body"].as_str().map(|s| s.to_string());
+
+        Ok((html, email_body))
     }
 }
