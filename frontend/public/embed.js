@@ -82,6 +82,14 @@
             if (config.provider) url.searchParams.set("provider", config.provider);
             if (config.quoteId) url.searchParams.set("quoteId", config.quoteId);
             if (config.bubbleVersion) url.searchParams.set("bubbleVersion", config.bubbleVersion);
+            if (config.pdfExportSettings) {
+                // Assuming it's an array of strings
+                if (Array.isArray(config.pdfExportSettings)) {
+                    url.searchParams.set("pdfExportSettings", config.pdfExportSettings.join(","));
+                } else {
+                    url.searchParams.set("pdfExportSettings", config.pdfExportSettings);
+                }
+            }
             iframe.src = url.toString();
 
             iframe.style.width = "100%";

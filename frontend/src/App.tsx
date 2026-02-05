@@ -15,6 +15,10 @@ function App() {
 
   const [quoteId, setQuoteId] = useState<string | null>(null)
   const [bubbleVersion, setBubbleVersion] = useState<string | undefined>(undefined)
+  const [pdfExportSettings, setPdfExportSettings] = useState<string[]>([])
+
+  // ... inside useEffect
+
 
   const [messages, setMessages] = useState<Message[]>([])
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null)
@@ -42,6 +46,11 @@ function App() {
 
     setQuoteId(params.get("quoteId"));
     setBubbleVersion(params.get("bubbleVersion") || undefined);
+
+    const settingsParam = params.get("pdfExportSettings");
+    if (settingsParam) {
+      setPdfExportSettings(settingsParam.split(",").filter(Boolean));
+    }
   }, [])
 
   // Fetch messages when token is available
@@ -132,6 +141,7 @@ function App() {
                 setQuoteId(null)
                 window.parent.postMessage({ type: 'GMAIL_WIDGET_CLOSE' }, '*')
               }}
+              pdfExportSettings={pdfExportSettings}
               className="w-full h-full border-none shadow-none"
             />
           ) : (

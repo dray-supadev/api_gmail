@@ -41,6 +41,55 @@ impl BubbleService {
         Ok(body)
     }
 
+    pub async fn generate_pdf_via_workflow(&self, quote_id: &str, version: Option<&str>, settings: Option<Vec<String>>) -> Result<(Vec<u8>, String), AppError> {
+        let version_path = version.unwrap_or("version-test");
+        let url = format!("{}/{}/api/1.1/wf/get_quote_json", self.base_url, version_path);
+        
+        let settings_list = settings.unwrap_or_default();
+
+        let payload = serde_json::json!({
+            "quote": quote_id,
+            "PDFExportSettings": settings_list
+        });
+
+        let res = self.client.post(&url)
+            .bearer_auth(&self.api_token)
+            .json(&payload)
+            .send()
+            .await?;
+
+        if !res.status().is_success() {
+             let error_text = res.text().await.unwrap_or_default();
+             return Err(AppError::BadGateway(format!("Bubble Workflow failed: {}", error_text)));
+        }
+
+        // Response expected: { "response": { "pdfFile": "https://...", "pdfName": "Quote.pdf" } }
+        let body: Value = res.json().await?;
+        let response_data = &body["response"];
+        
+        // Handle cases where Bubble returns "http:" but we prefer "https:" or raw URLs
+        let pdf_url = response_data["pdfFile"].as_str()
+            .ok_or(AppError::Config("Missing pdfFile in Bubble response".to_string()))?;
+            
+        // Correct protocol if needed (Bubble sometimes returns //s3...)
+        let pdf_url_fixed = if pdf_url.starts_with("//") {
+            format!("https:{}", pdf_url)
+        } else {
+            pdf_url.to_string()
+        };
+            
+        let pdf_name = response_data["pdfName"].as_str().unwrap_or("Quote.pdf").to_string();
+
+        // Download PDF
+        let pdf_res = self.client.get(&pdf_url_fixed).send().await?;
+        if !pdf_res.status().is_success() {
+            return Err(AppError::BadGateway("Failed to download PDF from Bubble".to_string()));
+        }
+        let pdf_bytes = pdf_res.bytes().await?.to_vec();
+
+        Ok((pdf_bytes, pdf_name))
+    }
+
     pub fn generate_quote_html(&self, quote_data: &Value, comment: Option<&str>) -> String {
         // Bubble Get Object response: { "response": { "field": ... } }
         let q = &quote_data["response"];

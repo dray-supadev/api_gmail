@@ -12,6 +12,7 @@ interface QuotePreviewProps {
     token: string
     provider: string
     onClose: () => void
+    pdfExportSettings?: string[]
     className?: string
 }
 
@@ -24,6 +25,7 @@ export function QuotePreview({
     token,
     provider,
     onClose,
+    pdfExportSettings = [],
     className
 }: QuotePreviewProps) {
     const [html, setHtml] = useState<string>("")
@@ -71,7 +73,8 @@ export function QuotePreview({
                 to: to.split(",").map(s => s.trim()).filter(Boolean),
                 subject,
                 thread_id: threadId,
-                comment
+                comment,
+                pdf_export_settings: pdfExportSettings
             })
             onClose()
         } catch (e) {

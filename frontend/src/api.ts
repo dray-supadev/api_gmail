@@ -23,6 +23,7 @@ export interface SendQuoteRequest {
     subject: string;
     thread_id?: string;
     comment?: string;
+    pdf_export_settings?: string[];
 }
 
 const API_BASE = import.meta.env.PROD ? "" : "http://localhost:3000";

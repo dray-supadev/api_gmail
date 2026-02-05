@@ -10,7 +10,7 @@ use super::provider::{EmailProvider, ListParams, SendMessageRequest};
 use super::gmail::GmailProvider;
 use super::outlook::OutlookProvider;
 use crate::services::bubble::BubbleService;
-use crate::services::n8n::N8NService;
+// use crate::services::n8n::N8NService;
 
 #[derive(Deserialize)]
 pub struct ProviderParams {
@@ -117,6 +117,7 @@ pub struct SendQuoteRequest {
     pub subject: String,
     pub thread_id: Option<String>,
     pub comment: Option<String>,
+    pub pdf_export_settings: Option<Vec<String>>,
 }
 
 pub async fn send_quote_email(
@@ -127,27 +128,35 @@ pub async fn send_quote_email(
     
     // 1. Setup Services
     let bubble_service = BubbleService::new()?;
-    let n8n_service = N8NService::new();
+    // 2. Fetch/Generate PDF via Bubble Workflow
+    let (pdf_bytes, filename) = bubble_service.generate_pdf_via_workflow(
+        &req.quote_id, 
+        req.version.as_deref(), 
+        req.pdf_export_settings
+    ).await?;
     
-    // 2. Fetch Quote Data
-    let quote_data = bubble_service.fetch_quote(req.version.as_deref(), &req.quote_id).await?;
+    // 3. Generate HTML Body (Simple notification)
+    // We can still fetch quote data for "Quote Proposal from..." if we want, or just use a generic body.
+    // User didn't specify body changes, but previously we generated HTML from data.
+    // Let's keep it simple: "Attached is the quote..."
+    // Or if we want to be safe, we can still fetch quote details for the body text IF needed.
+    // For now, let's use the comment as the body or a default message.
+    let html_body = if let Some(comment) = &req.comment {
+        format!("<p>{}</p>", comment.replace("\n", "<br>"))
+    } else {
+        "<p>Please find the attached quote proposal.</p>".to_string()
+    };
     
-    // 3. Generate HTML
-    let html_body = bubble_service.generate_quote_html(&quote_data, req.comment.as_deref());
-    
-    // 4. Generate PDF
-    let pdf_bytes = n8n_service.generate_pdf(&html_body).await?;
-    
-    // 5. Select Provider
+    // 4. Select Provider
     let provider_instance: Box<dyn EmailProvider> = match req.provider.as_str() {
         "gmail" => Box::new(GmailProvider::new()),
         "outlook" => Box::new(OutlookProvider::new()),
         _ => return Err(AppError::BadRequest("Invalid provider. Use 'gmail' or 'outlook'".to_string())),
     };
     
-    // 6. Send Email
+    // 5. Send Email
     let attachment = super::provider::Attachment {
-        filename: "Quote.pdf".to_string(), 
+        filename, 
         content: pdf_bytes,
         mime_type: "application/pdf".to_string(),
     };
