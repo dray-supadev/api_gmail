@@ -23,7 +23,9 @@ impl N8NService {
             "html": html_content
         });
 
+        let api_key = std::env::var("N8N_API_KEY").unwrap_or_else(|_| "n8n_api_b5f34067cdcd60c1dc6dbcb5d999fdbbad1f9aba10cf475024e6ba9534643dc498c5cb0e11c05d36".to_string());
         let res = self.client.post(&self.webhook_url)
+            .header("X-N8N-API-KEY", api_key)
             .json(&payload)
             .send()
             .await?;
