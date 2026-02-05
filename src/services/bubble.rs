@@ -211,7 +211,6 @@ impl BubbleService {
         comment_section=comment_html,
         logo_html=if !logo_url.is_empty() { format!(r#"<img src="{}" alt="Company Logo" style="object-fit: contain; max-width: 100px; height: auto; margin-bottom: 10px;">"#, logo_url) } else { "".to_string() }
         )
-        )
     }
 
     pub async fn fetch_quote_preview(&self, quote_id: &str, version: Option<&str>, settings: Option<Vec<String>>) -> Result<(String, Option<String>), AppError> {
