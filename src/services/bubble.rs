@@ -221,7 +221,7 @@ impl BubbleService {
 
         let payload = serde_json::json!({
             "quote": quote_id,
-            "pdfExportSettings": settings_list
+            "PDFExportSettings": settings_list
         });
 
         let res = self.client.post(&url)
