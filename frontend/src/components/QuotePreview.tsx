@@ -28,6 +28,12 @@ export function QuotePreview({
     pdfExportSettings = [],
     className
 }: QuotePreviewProps) {
+    const [comment, setComment] = useState("")
+    const [to, setTo] = useState(initialTo.join(", "))
+    const [subject, setSubject] = useState(initialSubject)
+    const [sending, setSending] = useState(false)
+    const [loadingPreview, setLoadingPreview] = useState(false)
+
     const [templateHtml, setTemplateHtml] = useState<string>("")
 
     // Derived state for the actual HTML in the iframe
