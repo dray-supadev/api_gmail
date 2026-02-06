@@ -52,12 +52,28 @@ pub struct SendMessageRequest {
     pub attachments: Option<Vec<Attachment>>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Label {
+    pub id: String,
+    pub name: String,
+    pub label_type: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct BatchModifyRequest {
+    pub ids: Vec<String>,
+    pub add_label_ids: Option<Vec<String>>,
+    pub remove_label_ids: Option<Vec<String>>,
+}
+
 #[async_trait]
 pub trait EmailProvider: Send + Sync {
     async fn list_messages(&self, token: &str, params: ListParams) -> Result<serde_json::Value, AppError>;
     async fn get_message(&self, token: &str, id: &str) -> Result<CleanMessage, AppError>;
     async fn get_thread(&self, token: &str, id: &str) -> Result<serde_json::Value, AppError>;
     async fn send_message(&self, token: &str, req: SendMessageRequest) -> Result<serde_json::Value, AppError>;
+    async fn list_labels(&self, token: &str) -> Result<Vec<Label>, AppError>;
+    async fn batch_modify_labels(&self, token: &str, req: BatchModifyRequest) -> Result<(), AppError>;
 }
 
 #[derive(Deserialize, Debug)]

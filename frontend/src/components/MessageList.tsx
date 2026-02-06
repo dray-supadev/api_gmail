@@ -1,32 +1,32 @@
 import { Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-interface Message {
-    id: string
-    from?: string
-    subject?: string
-    snippet?: string
-    date?: string
-    unread: boolean
-    has_attachments: boolean
-}
+import type { Message } from "../api"
 
 interface MessageListProps {
     messages: Message[]
     selectedId: string | null
     onSelect: (id: string) => void
+    labelName?: string
 }
 
-export function MessageList({ messages, selectedId, onSelect }: MessageListProps) {
+export function MessageList({ messages, selectedId, onSelect, labelName = "Inbox" }: MessageListProps) {
     if (!messages.length) {
-        return <div className="p-4 text-center text-muted-foreground">No messages</div>
+        return (
+            <div className="flex flex-col h-full border-r bg-background w-[400px]">
+                <div className="p-4 border-b space-y-4">
+                    <h1 className="text-xl font-bold">{labelName}</h1>
+                </div>
+                <div className="p-10 text-center text-muted-foreground flex-1">No messages in {labelName}</div>
+            </div>
+        )
     }
 
     return (
         <div className="flex flex-col h-full border-r bg-background w-[400px]">
             {/* Header / Search */}
             <div className="p-4 border-b space-y-4">
-                <h1 className="text-xl font-bold">Inbox</h1>
+                <h1 className="text-xl font-bold">{labelName}</h1>
                 <div className="relative">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <input

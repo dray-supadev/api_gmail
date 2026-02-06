@@ -12,7 +12,7 @@ use std::sync::{Mutex};
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-use super::provider::{EmailProvider, CleanMessage, MessageSummary, AttachmentSummary, SendMessageRequest, ListParams};
+use super::provider::{EmailProvider, CleanMessage, MessageSummary, AttachmentSummary, SendMessageRequest, ListParams, Label, BatchModifyRequest};
 
 // Key for the cache: (Google Token Hash + Query Params Hash) -> Page Number -> Gmail Token
 // We use a simple string key: "{token_hash}_{query}_{labels}_{max}_{page}"
@@ -481,6 +481,59 @@ impl EmailProvider for GmailProvider {
 
         let json: serde_json::Value = res.json().await?;
         Ok(json)
+    }
+
+    async fn list_labels(&self, token: &str) -> Result<Vec<Label>, AppError> {
+        let client = Client::new();
+        let url = "https://gmail.googleapis.com/gmail/v1/users/me/labels";
+
+        let res = client
+            .get(url)
+            .bearer_auth(token)
+            .send()
+            .await?;
+
+        if !res.status().is_success() {
+            return Err(AppError::GmailApi(res.error_for_status().unwrap_err()));
+        }
+
+        let data: serde_json::Value = res.json().await?;
+        let labels_raw = data["labels"].as_array().ok_or_else(|| anyhow::anyhow!("Labels not found"))?;
+
+        let labels = labels_raw
+            .iter()
+            .map(|l| Label {
+                id: l["id"].as_str().unwrap_or("").to_string(),
+                name: l["name"].as_str().unwrap_or("").to_string(),
+                label_type: l["type"].as_str().map(|s| s.to_string()),
+            })
+            .collect();
+
+        Ok(labels)
+    }
+
+    async fn batch_modify_labels(&self, token: &str, req: BatchModifyRequest) -> Result<(), AppError> {
+        let client = Client::new();
+        let url = "https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify";
+
+        let body = json!({
+            "ids": req.ids,
+            "addLabelIds": req.add_label_ids.unwrap_or_default(),
+            "removeLabelIds": req.remove_label_ids.unwrap_or_default(),
+        });
+
+        let res = client
+            .post(url)
+            .bearer_auth(token)
+            .json(&body)
+            .send()
+            .await?;
+
+        if !res.status().is_success() {
+            return Err(AppError::GmailApi(res.error_for_status().unwrap_err()));
+        }
+
+        Ok(())
     }
 }
 

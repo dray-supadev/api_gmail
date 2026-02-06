@@ -6,7 +6,7 @@ use axum::{
 use serde::Deserialize;
 use serde_json::json;
 use crate::error::AppError;
-use super::provider::{EmailProvider, ListParams, SendMessageRequest};
+use super::provider::{EmailProvider, ListParams, SendMessageRequest, BatchModifyRequest};
 use super::gmail::GmailProvider;
 use super::outlook::OutlookProvider;
 use crate::services::bubble::BubbleService;
@@ -83,6 +83,29 @@ pub async fn send_message(
     
     let result: serde_json::Value = provider.send_message(token, payload).await?;
     Ok(Json(result).into_response())
+}
+
+pub async fn list_labels(
+    headers: HeaderMap,
+    Query(provider_params): Query<ProviderParams>,
+) -> Result<Response, AppError> {
+    let token = get_token(&headers)?;
+    let provider = get_provider(&provider_params);
+    
+    let result = provider.list_labels(token).await?;
+    Ok(Json(result).into_response())
+}
+
+pub async fn batch_modify_labels(
+    headers: HeaderMap,
+    Query(provider_params): Query<ProviderParams>,
+    Json(payload): Json<BatchModifyRequest>,
+) -> Result<Response, AppError> {
+    let token = get_token(&headers)?;
+    let provider = get_provider(&provider_params);
+    
+    provider.batch_modify_labels(token, payload).await?;
+    Ok(Json(json!({"status": "ok"})).into_response())
 }
 
 // --- Quote Endpoints ---

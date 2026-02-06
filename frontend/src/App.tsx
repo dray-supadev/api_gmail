@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { MessageList } from './components/MessageList'
 import { ThreadView } from './components/ThreadView'
 import { QuotePreview } from './components/QuotePreview'
 import { api } from './api'
-import type { Message } from './api'
+import type { Message, Label } from './api'
+import { X } from 'lucide-react'
 
 function App() {
   const [provider, setProvider] = useState<"gmail" | "outlook">("gmail")
@@ -21,6 +22,8 @@ function App() {
 
 
   const [messages, setMessages] = useState<Message[]>([])
+  const [labels, setLabels] = useState<Label[]>([])
+  const [selectedLabelId, setSelectedLabelId] = useState<string>("INBOX")
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -53,32 +56,53 @@ function App() {
     }
   }, [])
 
-  // Fetch messages when token is available
+  // Fetch labels when token is available
   useEffect(() => {
-    // Clear messages when provider switches to avoid showing wrong data
+    if (!activeToken) return;
+    api.listLabels(activeToken, provider)
+      .then(setLabels)
+      .catch(err => console.error("Failed to load labels:", err));
+  }, [activeToken, provider]);
+
+  // Fetch messages when token or label changes
+  useEffect(() => {
+    // Clear messages when provider or label switches
     setMessages([]);
     setSelectedThreadId(null);
     setAuthError(false);
 
     if (!activeToken) return;
     setLoading(true);
-    api.listMessages(activeToken, provider)
+
+    // If "SEARCH" or specific query is needed, use q. 
+    // Otherwise use labelIds.
+    api.listMessages(activeToken, provider, { label_ids: selectedLabelId })
       .then(setMessages)
       .catch(err => {
         console.error("Failed to load messages:", err);
-        setMessages([]); // Ensure empty on error
+        setMessages([]);
         if (err.message === "Unauthorized") {
           setAuthError(true);
         }
       })
       .finally(() => setLoading(false));
-  }, [activeToken, provider]);
+  }, [activeToken, provider, selectedLabelId]);
+
+  const handleClose = useCallback(() => {
+    window.parent.postMessage({ type: 'GMAIL_WIDGET_CLOSE' }, '*');
+  }, []);
 
   const selectedMessage = messages.find(m => m.id === selectedThreadId || m.thread_id === selectedThreadId);
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans">
-      <Sidebar currentProvider={provider} onProviderChange={setProvider} />
+    <div className="fixed inset-0 flex bg-background text-foreground overflow-hidden font-sans w-screen h-screen">
+      <Sidebar
+        currentProvider={provider}
+        onProviderChange={setProvider}
+        labels={labels}
+        selectedLabelId={selectedLabelId}
+        onLabelSelect={setSelectedLabelId}
+      />
 
       {/* Messages List - Always visible */}
       {loading ? (
@@ -106,6 +130,7 @@ function App() {
           messages={messages}
           selectedId={selectedThreadId}
           onSelect={setSelectedThreadId}
+          labelName={labels.find(l => l.id === selectedLabelId)?.name || "Inbox"}
         />
       )}
 
@@ -157,7 +182,29 @@ function App() {
           )
         ) : (
           // NORMAL READING MODE
-          <ThreadView threadId={selectedThreadId} />
+          <ThreadView
+            threadId={selectedThreadId}
+            token={activeToken}
+            provider={provider}
+            labels={labels}
+            onMove={() => {
+              setSelectedThreadId(null);
+              // Trigger refresh of messages
+              setMessages([]);
+              api.listMessages(activeToken!, provider, { label_ids: selectedLabelId }).then(setMessages);
+            }}
+          />
+        )}
+
+        {/* Global Close Button when no conversation is selected (Request 5) */}
+        {!selectedThreadId && !quoteId && (
+          <button
+            onClick={handleClose}
+            className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 text-slate-400 transition-colors z-50"
+            title="Close Widget"
+          >
+            <X className="w-6 h-6" />
+          </button>
         )}
       </div>
     </div>

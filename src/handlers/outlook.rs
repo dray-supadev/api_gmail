@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde_json::json;
 use crate::error::AppError;
-use super::provider::{EmailProvider, CleanMessage, SendMessageRequest, ListParams};
+use super::provider::{EmailProvider, CleanMessage, SendMessageRequest, ListParams, Label, BatchModifyRequest};
 
 pub struct OutlookProvider;
 
@@ -158,5 +158,64 @@ impl EmailProvider for OutlookProvider {
          }
          
          Ok(json!({"status": "sent"}))
+    }
+
+    async fn list_labels(&self, token: &str) -> Result<Vec<Label>, AppError> {
+        let client = Client::new();
+        let url = "https://graph.microsoft.com/v1.0/me/mailFolders?$top=99";
+
+        let res = client
+            .get(url)
+            .bearer_auth(token)
+            .send()
+            .await?;
+
+        if !res.status().is_success() {
+            return Err(AppError::GmailApi(res.error_for_status().unwrap_err()));
+        }
+
+        let data: serde_json::Value = res.json().await?;
+        let folders = data["value"].as_array().ok_or_else(|| anyhow::anyhow!("Folders not found"))?;
+
+        let labels = folders
+            .iter()
+            .map(|f| Label {
+                id: f["id"].as_str().unwrap_or("").to_string(),
+                name: f["displayName"].as_str().unwrap_or("").to_string(),
+                label_type: Some("user".to_string()), // Simplified
+            })
+            .collect();
+
+        Ok(labels)
+    }
+
+    async fn batch_modify_labels(&self, token: &str, req: BatchModifyRequest) -> Result<(), AppError> {
+        let client = Client::new();
+        
+        // Moving to folder in Outlook is done per-message via POST /messages/{id}/move
+        // We only support moving to a SINGLE folder (the first one in add_label_ids)
+        let target_folder = req.add_label_ids.and_then(|ids| ids.into_iter().next());
+        
+        if let Some(folder_id) = target_folder {
+            for message_id in req.ids {
+                let url = format!("https://graph.microsoft.com/v1.0/me/messages/{}/move", message_id);
+                let body = json!({
+                    "destinationId": folder_id
+                });
+
+                let res = client
+                    .post(&url)
+                    .bearer_auth(token)
+                    .json(&body)
+                    .send()
+                    .await?;
+
+                if !res.status().is_success() {
+                    return Err(AppError::GmailApi(res.error_for_status().unwrap_err()));
+                }
+            }
+        }
+
+        Ok(())
     }
 }
