@@ -23,7 +23,7 @@ export function MessageList({ messages, selectedId, onSelect, labelName = "Inbox
     }
 
     return (
-        <div className="flex flex-col h-full border-r bg-background w-[400px]">
+        <div className="flex flex-col h-full border-r bg-background w-[320px]">
             {/* Header / Search */}
             <div className="p-4 border-b space-y-4">
                 <h1 className="text-xl font-bold">{labelName}</h1>
