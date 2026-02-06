@@ -202,10 +202,10 @@ function App() {
       {!selectedThreadId && (
         <button
           onClick={handleClose}
-          className="fixed top-4 right-4 p-2 rounded-full hover:bg-slate-100 text-slate-500 transition-colors z-[100] bg-white/90 shadow-md border border-slate-200"
-          title="Close"
+          className="fixed top-6 right-6 p-4 rounded-full bg-red-500 hover:bg-red-600 text-white transition-all z-[99999] shadow-[0_4px_24px_rgba(239,68,68,0.5)] border-2 border-white group"
+          title="Закрыть"
         >
-          <X className="w-6 h-6" />
+          <X className="w-8 h-8 group-hover:scale-110 transition-transform" />
         </button>
       )}
     </div>

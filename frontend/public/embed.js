@@ -17,15 +17,11 @@
                 container = document.createElement("div");
                 container.id = containerId;
                 container.style.position = "fixed";
-                container.style.top = "50%";
-                container.style.left = "50%";
-                container.style.transform = "translate(-50%, -50%)";
-                container.style.width = width;
-                container.style.height = height;
-                container.style.zIndex = "9999";
-                container.style.boxShadow = "0 10px 25px rgba(0,0,0,0.5)";
-                container.style.borderRadius = "12px";
-                container.style.overflow = "hidden";
+                container.style.top = "0";
+                container.style.left = "0";
+                container.style.width = "100vw";
+                container.style.height = "100vh";
+                container.style.zIndex = "99999";
                 container.style.backgroundColor = "white";
 
                 // Close button removed in favor of internal app close button

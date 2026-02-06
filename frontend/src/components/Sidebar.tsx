@@ -21,7 +21,7 @@ export function Sidebar({
     const [collapsed, _setCollapsed] = useState(false)
 
     return (
-        <div className={cn("h-screen bg-card border-r flex flex-col transition-all duration-300", collapsed ? "w-16" : "w-64")}>
+        <div className={cn("h-full bg-card border-r flex flex-col transition-all duration-300", collapsed ? "w-16" : "w-64")}>
             {/* Account Switcher */}
             <div className="p-4 border-b">
                 <div className="flex items-center gap-2 cursor-pointer hover:bg-accent/50 p-2 rounded-lg" onClick={() => onProviderChange(currentProvider === "gmail" ? "outlook" : "gmail")}>
