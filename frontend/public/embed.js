@@ -45,66 +45,66 @@
             */
 
             document.body.appendChild(container);
-        }
+
 
             // Create Iframe
             // Create Iframe
             const iframe = document.createElement("iframe");
 
-        // Auto-detect domain from the script tag source, or fallback to config
-        let appUrl = config.appUrl;
-        if(!appUrl) {
-            // Try to find the script tag that loaded this file
-            const scriptTag = document.querySelector('script[src*="embed.js"]');
-            if (scriptTag) {
-                try {
-                    const url = new URL(scriptTag.src);
-                    appUrl = url.origin;
-                } catch (e) {
-                    console.error("Could not parse script URL", e);
+            // Auto-detect domain from the script tag source, or fallback to config
+            let appUrl = config.appUrl;
+            if (!appUrl) {
+                // Try to find the script tag that loaded this file
+                const scriptTag = document.querySelector('script[src*="embed.js"]');
+                if (scriptTag) {
+                    try {
+                        const url = new URL(scriptTag.src);
+                        appUrl = url.origin;
+                    } catch (e) {
+                        console.error("Could not parse script URL", e);
+                    }
                 }
             }
-        }
 
             iframe.src = appUrl || "https://app.drayinsight.com";
 
-        // Append configuration params
-        const url = new URL(iframe.src);
+            // Append configuration params
+            const url = new URL(iframe.src);
 
-        // Pass specific tokens if available
-        if(config.gmailToken) url.searchParams.set("gmailToken", config.gmailToken);
-        if(config.outlookToken) url.searchParams.set("outlookToken", config.outlookToken);
+            // Pass specific tokens if available
+            if (config.gmailToken) url.searchParams.set("gmailToken", config.gmailToken);
+            if (config.outlookToken) url.searchParams.set("outlookToken", config.outlookToken);
 
-        // Legacy single token support (optional, or if user only sends one)
-        if(config.token) url.searchParams.set("token", config.token);
+            // Legacy single token support (optional, or if user only sends one)
+            if (config.token) url.searchParams.set("token", config.token);
 
-        if(config.provider) url.searchParams.set("provider", config.provider);
-        if(config.quoteId) url.searchParams.set("quoteId", config.quoteId);
-        if(config.bubbleVersion) url.searchParams.set("bubbleVersion", config.bubbleVersion);
-        if(config.pdfExportSettings) {
-        // Assuming it's an array of strings
-        if (Array.isArray(config.pdfExportSettings)) {
-            url.searchParams.set("pdfExportSettings", config.pdfExportSettings.join(","));
-        } else {
-            url.searchParams.set("pdfExportSettings", config.pdfExportSettings);
+            if (config.provider) url.searchParams.set("provider", config.provider);
+            if (config.quoteId) url.searchParams.set("quoteId", config.quoteId);
+            if (config.bubbleVersion) url.searchParams.set("bubbleVersion", config.bubbleVersion);
+            if (config.pdfExportSettings) {
+                // Assuming it's an array of strings
+                if (Array.isArray(config.pdfExportSettings)) {
+                    url.searchParams.set("pdfExportSettings", config.pdfExportSettings.join(","));
+                } else {
+                    url.searchParams.set("pdfExportSettings", config.pdfExportSettings);
+                }
+            }
+            iframe.src = url.toString();
+
+            iframe.style.width = "100%";
+            iframe.style.height = "100%";
+            iframe.style.border = "none";
+
+            container.appendChild(iframe);
         }
-    }
-    iframe.src = url.toString();
-
-    iframe.style.width = "100%";
-    iframe.style.height = "100%";
-    iframe.style.border = "none";
-
-    container.appendChild(iframe);
-}
     };
-// Listen for close message from the iframe
-window.addEventListener("message", function (event) {
-    if (event.data && event.data.type === "GMAIL_WIDGET_CLOSE") {
-        const container = document.getElementById("gmail-outlook-widget-container");
-        if (container) {
-            document.body.removeChild(container);
+    // Listen for close message from the iframe
+    window.addEventListener("message", function (event) {
+        if (event.data && event.data.type === "GMAIL_WIDGET_CLOSE") {
+            const container = document.getElementById("gmail-outlook-widget-container");
+            if (container) {
+                document.body.removeChild(container);
+            }
         }
-    }
-});
-}) ();
+    });
+})();
