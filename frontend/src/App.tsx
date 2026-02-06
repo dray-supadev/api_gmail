@@ -95,7 +95,7 @@ function App() {
   const selectedMessage = messages.find(m => m.id === selectedThreadId || m.thread_id === selectedThreadId);
 
   return (
-    <div className="fixed inset-0 flex bg-background text-foreground overflow-hidden font-sans w-screen h-screen">
+    <div className="fixed inset-0 flex bg-background text-foreground overflow-hidden font-sans">
       <Sidebar
         currentProvider={provider}
         onProviderChange={setProvider}
@@ -196,17 +196,18 @@ function App() {
           />
         )}
 
-        {/* Global Close Button when no conversation is selected (Request 5) */}
-        {!selectedThreadId && !quoteId && (
-          <button
-            onClick={handleClose}
-            className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 text-slate-400 transition-colors z-50"
-            title="Close Widget"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        )}
       </div>
+
+      {/* Global Close Button when no conversation is selected (Request 5) */}
+      {!selectedThreadId && (
+        <button
+          onClick={handleClose}
+          className="fixed top-4 right-4 p-2 rounded-full hover:bg-slate-100 text-slate-500 transition-colors z-[100] bg-white/90 shadow-md border border-slate-200"
+          title="Close"
+        >
+          <X className="w-6 h-6" />
+        </button>
+      )}
     </div>
   )
 }
