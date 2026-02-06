@@ -13,7 +13,7 @@ interface MessageListProps {
 export function MessageList({ messages, selectedId, onSelect, labelName = "Inbox" }: MessageListProps) {
     if (!messages.length) {
         return (
-            <div className="flex flex-col h-full border-r bg-background w-[320px]">
+            <div className="flex flex-col h-full border-r bg-background w-80 lg:w-96">
                 <div className="p-4 border-b space-y-4">
                     <h1 className="text-xl font-bold">{labelName}</h1>
                 </div>
