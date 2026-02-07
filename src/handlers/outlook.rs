@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde_json::json;
 use crate::error::AppError;
-use super::provider::{EmailProvider, CleanMessage, SendMessageRequest, ListParams, Label, BatchModifyRequest};
+use super::provider::{EmailProvider, CleanMessage, MessageSummary, SendMessageRequest, ListParams, Label, BatchModifyRequest};
 
 pub struct OutlookProvider {
     client: Client,
