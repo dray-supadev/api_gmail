@@ -203,3 +203,22 @@ pub async fn send_quote_email(
     
     Ok(Json(result).into_response())
 }
+
+pub async fn get_embed_js(
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    let path = "frontend/dist/embed.js";
+    let js = match std::fs::read_to_string(path) {
+        Ok(content) => content.replace("__API_KEY_PLACEHOLDER__", &state.config.app_secret_key),
+        Err(e) => {
+            tracing::error!("Failed to read embed.js: {:?}", e);
+            "console.error('Widget script not found on server');".to_string()
+        }
+    };
+
+    axum::response::Response::builder()
+        .header("Content-Type", "application/javascript")
+        .header("Cache-Control", "no-cache") 
+        .body(axum::body::Body::from(js))
+        .unwrap()
+}

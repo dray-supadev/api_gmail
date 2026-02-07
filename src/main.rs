@@ -49,7 +49,7 @@ async fn main() {
         // Apply Auth Middleware to /api routes (Fix Point 5)
         .route_layer(axum::middleware::from_fn_with_state(state.clone(), middleware::auth::verify_api_key))
         // Explicitly serve embed.js
-        .route("/embed.js", axum::routing::get_service(tower_http::services::ServeFile::new("frontend/dist/embed.js")))
+        .route("/embed.js", get(handlers::api::get_embed_js))
         .layer(TraceLayer::new_for_http())
         // Fix Point 4: More restrictive CORS for production
         .layer(

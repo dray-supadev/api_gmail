@@ -81,7 +81,13 @@
             if (config.provider) url.searchParams.set("provider", config.provider);
             if (config.quoteId) url.searchParams.set("quoteId", config.quoteId);
             if (config.bubbleVersion) url.searchParams.set("bubbleVersion", config.bubbleVersion);
-            if (config.apiKey) url.searchParams.set("apiKey", config.apiKey); // Pass API Key
+            // Security: API Key injection placeholder
+            const INJECTED_API_KEY = "__API_KEY_PLACEHOLDER__";
+            const apiKey = config.apiKey || INJECTED_API_KEY;
+
+            if (apiKey && apiKey !== "__API_KEY_PLACEHOLDER__") {
+                url.searchParams.set("apiKey", apiKey);
+            }
 
             if (config.pdfExportSettings) {
                 // Assuming it's an array of strings
