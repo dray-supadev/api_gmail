@@ -109,26 +109,33 @@ impl EmailProvider for OutlookProvider {
         
         // Parse Outlook JSON to CleanMessage
         let subject = data["subject"].as_str().map(|s| s.to_string());
-        let from = data["from"]["emailAddress"]["name"].as_str()
-            .or_else(|| data["from"]["emailAddress"]["address"].as_str())
+        
+        // Prioritize address for "from" if it's for an email field
+        let from = data["from"]["emailAddress"]["address"].as_str()
+            .or_else(|| data["from"]["emailAddress"]["name"].as_str())
             .map(|s| s.to_string());
+            
         let date = data["receivedDateTime"].as_str().map(|s| s.to_string());
         let snippet = data["bodyPreview"].as_str().unwrap_or("").to_string();
         
-        // Fetch attachments separately if needed or expand? 
-        // Graph API usually requires /attachments endpoint for details.
-        // For summary, we can check hasAttachments.
-        
+        // Extract recipients
+        let to = data["toRecipients"].as_array().map(|recipients| {
+            recipients.iter()
+                .filter_map(|r| r["emailAddress"]["address"].as_str())
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>()
+        });
+
         Ok(CleanMessage {
             id: id.to_string(),
             subject,
             from,
-            to: None, // TODO extract TO
+            to,
             date,
             snippet,
             body_text: data["body"]["content"].as_str().map(|s| s.to_string()),
-            body_html: None, // Simplified
-            attachments: vec![], // TODO fetch attachments
+            body_html: None, 
+            attachments: vec![],
         })
     }
     
