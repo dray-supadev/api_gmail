@@ -40,37 +40,20 @@ export function Sidebar({
 
             {/* Menu - Labels */}
             <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-                {/* Fixed Labels */}
-                {[
-                    { id: "INBOX", name: "Inbox", icon: Inbox },
-                    { id: "SENT", name: "Sent", icon: Send },
-                    { id: "DRAFT", name: "Drafts", icon: FileText },
-                    { id: "TRASH", name: "Trash", icon: Trash2 },
-                    { id: "SPAM", name: "Spam", icon: Mail },
-                    { id: "IMPORTANT", name: "Important", icon: Archive },
-                ].map((item) => (
-                    <div
-                        key={item.id}
-                        onClick={() => onLabelSelect(item.id)}
-                        className={cn(
-                            "flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer text-sm font-medium transition-colors hover:bg-accent/50",
-                            selectedLabelId === item.id ? "bg-accent text-accent-foreground" : "text-muted-foreground"
-                        )}
-                    >
-                        <item.icon className="w-5 h-5 shrink-0" />
-                        {!collapsed && <span className="flex-1">{item.name}</span>}
-                    </div>
-                ))}
+                {labels.map((label) => {
+                    // Map common label names to icons
+                    let Icon = Folder;
+                    const name = label.name.toLowerCase();
+                    const id = label.id.toUpperCase();
 
-                {/* Custom Labels */}
-                {!collapsed && labels.filter(l => l.label_type === "user").length > 0 && (
-                    <div className="pt-4 pb-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        Labels
-                    </div>
-                )}
-                {labels
-                    .filter(l => l.label_type === "user")
-                    .map((label) => (
+                    if (name.includes("inbox") || id === "INBOX") Icon = Inbox;
+                    else if (name.includes("sent") || id === "SENT") Icon = Send;
+                    else if (name.includes("draft") || id === "DRAFT") Icon = FileText;
+                    else if (name.includes("trash") || name.includes("deleted") || id === "TRASH") Icon = Trash2;
+                    else if (name.includes("spam") || name.includes("junk") || id === "SPAM") Icon = Mail;
+                    else if (name.includes("archive") || id === "ARCHIVE") Icon = Archive;
+
+                    return (
                         <div
                             key={label.id}
                             onClick={() => onLabelSelect(label.id)}
@@ -79,10 +62,17 @@ export function Sidebar({
                                 selectedLabelId === label.id ? "bg-accent text-accent-foreground" : "text-muted-foreground"
                             )}
                         >
-                            <Folder className="w-5 h-5 shrink-0 text-slate-400" />
+                            <Icon className="w-5 h-5 shrink-0" />
                             {!collapsed && <span className="flex-1 truncate">{label.name}</span>}
                         </div>
-                    ))}
+                    );
+                })}
+
+                {labels.length === 0 && !collapsed && (
+                    <div className="px-3 py-4 text-xs text-center text-muted-foreground italic">
+                        No labels found
+                    </div>
+                )}
             </nav>
         </div>
     )

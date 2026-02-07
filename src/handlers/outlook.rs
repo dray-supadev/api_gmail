@@ -17,17 +17,28 @@ impl OutlookProvider {
 #[async_trait]
 impl EmailProvider for OutlookProvider {
     async fn list_messages(&self, token: &str, params: ListParams) -> Result<serde_json::Value, AppError> {
-        let mut url = "https://graph.microsoft.com/v1.0/me/messages".to_string();
+        let mut url = if let Some(label_id) = params.label_ids.as_deref() {
+            if label_id == "INBOX" {
+                "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages".to_string()
+            } else if label_id == "SENT" {
+                "https://graph.microsoft.com/v1.0/me/mailFolders/sentitems/messages".to_string()
+            } else if label_id == "DRAFT" {
+                "https://graph.microsoft.com/v1.0/me/mailFolders/drafts/messages".to_string()
+            } else if label_id == "TRASH" {
+                "https://graph.microsoft.com/v1.0/me/mailFolders/deleteditems/messages".to_string()
+            } else {
+                format!("https://graph.microsoft.com/v1.0/me/mailFolders/{}/messages", label_id)
+            }
+        } else {
+            "https://graph.microsoft.com/v1.0/me/messages".to_string()
+        };
+
         let mut query = Vec::new();
         query.push("$select=id,subject,from,receivedDateTime,isRead,hasAttachments,bodyPreview,conversationId".to_string());
         
         // Fixed Point 12: Avoid duplicate $top
         let top = params.max_results.unwrap_or(10);
         query.push(format!("$top={}", top));
-        
-        // Outlook pagination uses $skip or $deltatoken/skiptoken, but simpler to rely on @odata.nextLink provided by API
-        // If parameters contain a direct link (from next_page_token hack), use it.
-        // For strict page numbers, we might need $skip = (page-1)*limit.
         
         if let Some(page) = params.page_number {
             if page > 1 {
@@ -56,11 +67,28 @@ impl EmailProvider for OutlookProvider {
 
         let data: serde_json::Value = res.json().await?;
         
-        // Map to standard response format if needed, or return raw for now and let handler map it
-        // Check Unified API design: "Unified Message Models".
-        // For now returning raw graph response, but we should eventually unify.
+        let messages_raw = data["value"].as_array().ok_or_else(|| anyhow::anyhow!("Messages not found in response"))?;
         
-        Ok(data)
+        let summaries: Vec<MessageSummary> = messages_raw.iter().map(|m| {
+            MessageSummary {
+                id: m["id"].as_str().unwrap_or("").to_string(),
+                thread_id: m["conversationId"].as_str().unwrap_or("").to_string(),
+                snippet: m["bodyPreview"].as_str().unwrap_or("").to_string(),
+                subject: m["subject"].as_str().map(|s| s.to_string()),
+                from: m["from"]["emailAddress"]["name"].as_str()
+                    .or_else(|| m["from"]["emailAddress"]["address"].as_str())
+                    .map(|s| s.to_string()),
+                date: m["receivedDateTime"].as_str().map(|s| s.to_string()),
+                unread: !m["isRead"].as_bool().unwrap_or(true),
+                has_attachments: m["hasAttachments"].as_bool().unwrap_or(false),
+                messages_in_thread: None,
+            }
+        }).collect();
+        
+        Ok(json!({
+            "messages": summaries,
+            "@odata.nextLink": data["@odata.nextLink"]
+        }))
     }
 
     async fn get_message(&self, token: &str, id: &str) -> Result<CleanMessage, AppError> {

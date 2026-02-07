@@ -68,6 +68,12 @@ function App() {
     setIsConfigLoaded(true);
   }, [])
 
+  // Reset label and search when provider changes
+  useEffect(() => {
+    setSelectedLabelId("INBOX");
+    setSearchQuery("");
+  }, [provider]);
+
   // Fetch labels when token is available
   useEffect(() => {
     if (!isConfigLoaded || !activeToken) return;
