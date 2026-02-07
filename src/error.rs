@@ -33,7 +33,7 @@ pub enum AppError {
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status, error_message) = match &self {
-            AppError::Reqwest(ref e) => (StatusCode::BAD_GATEWAY, "Network or API error"),
+            AppError::Reqwest(ref _e) => (StatusCode::BAD_GATEWAY, "Network or API error"),
             AppError::GmailApi(ref e) => {
                 if let Some(reqwest_status) = e.status() {
                     let status_code = StatusCode::from_u16(reqwest_status.as_u16())

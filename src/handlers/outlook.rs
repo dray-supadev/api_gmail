@@ -185,7 +185,6 @@ impl EmailProvider for OutlookProvider {
     }
 
     async fn batch_modify_labels(&self, token: &str, req: BatchModifyRequest) -> Result<(), AppError> {
-        let client = Client::new();
         
         // Moving to folder in Outlook is done per-message via POST /messages/{id}/move
         // We only support moving to a SINGLE folder (the first one in add_label_ids)
