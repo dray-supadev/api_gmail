@@ -33,18 +33,26 @@ function App() {
   // Derived active token: uses specific provider token if available, falls back to legacy/generic token
   const activeToken = provider === "gmail" ? (tokens.gmail || legacyToken) : (tokens.outlook || legacyToken)
 
+  const [isConfigLoaded, setIsConfigLoaded] = useState(false)
+
   // Load config from URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
 
+    const apiKey = params.get("apiKey");
+    if (apiKey) {
+      api.setApiKey(apiKey);
+    } else {
+      // Fallback to check if we have the injected key
+      console.log("No API Key in URL, checking for injected key...");
+    }
+
     const gmailToken = params.get("gmailToken") || undefined;
     const outlookToken = params.get("outlookToken") || undefined;
     const t = params.get("token") || "";
-    const apiKey = params.get("apiKey");
 
     setTokens({ gmail: gmailToken, outlook: outlookToken });
     setLegacyToken(t);
-    if (apiKey) api.setApiKey(apiKey);
 
     const p = params.get("provider");
     if (p === "gmail" || p === "outlook") setProvider(p);
@@ -56,15 +64,18 @@ function App() {
     if (settingsParam) {
       setPdfExportSettings(settingsParam.split(",").filter(Boolean));
     }
+
+    setIsConfigLoaded(true);
   }, [])
 
   // Fetch labels when token is available
   useEffect(() => {
-    if (!activeToken) return;
+    if (!isConfigLoaded || !activeToken) return;
+    setLoading(true);
     api.listLabels(activeToken, provider)
       .then(setLabels)
       .catch(err => console.error("Failed to load labels:", err));
-  }, [activeToken, provider]);
+  }, [activeToken, provider, isConfigLoaded]);
 
   // Fetch messages when token or label changes
   useEffect(() => {
@@ -73,7 +84,7 @@ function App() {
     setSelectedThreadId(null);
     setAuthError(false);
 
-    if (!activeToken) return;
+    if (!isConfigLoaded || !activeToken) return;
     setLoading(true);
 
     api.listMessages(activeToken, provider, {
@@ -89,7 +100,7 @@ function App() {
         }
       })
       .finally(() => setLoading(false));
-  }, [activeToken, provider, selectedLabelId, searchQuery]);
+  }, [activeToken, provider, selectedLabelId, searchQuery, isConfigLoaded]);
 
   // Initial debug log
   useEffect(() => {
