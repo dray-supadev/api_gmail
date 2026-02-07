@@ -17,6 +17,7 @@ impl OutlookProvider {
 #[async_trait]
 impl EmailProvider for OutlookProvider {
     async fn list_messages(&self, token: &str, params: ListParams) -> Result<serde_json::Value, AppError> {
+        let mut url = "https://graph.microsoft.com/v1.0/me/messages".to_string();
         let mut query = Vec::new();
         query.push("$select=id,subject,from,receivedDateTime,isRead,hasAttachments,bodyPreview,conversationId".to_string());
         

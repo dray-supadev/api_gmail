@@ -1,7 +1,3 @@
-use axum::{
-    // extract::{Json},
-    // response::{IntoResponse},
-};
 use serde_json::json;
 use reqwest::Client;
 use crate::error::AppError;
@@ -305,7 +301,7 @@ impl EmailProvider for GmailProvider {
                 // Let's just make the helper function NOT a method of self, or just static.
                 // For this refactor, I'll assume `fetch_message_metadata` is moved out of impl or we Clone.
                 // Since `GmailProvider` is ZST, we can create a new one.
-                let provider = GmailProvider::new();
+                let provider = GmailProvider::new(client_clone.clone());
                 provider.fetch_message_metadata(&client_clone, &token_clone, &id, &thread_id).await
             }));
         }

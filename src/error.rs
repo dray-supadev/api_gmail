@@ -8,6 +8,8 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum AppError {
+    #[error("API error: {0}")]
+    Reqwest(#[from] reqwest::Error),
     #[error("Gmail API error: {0}")]
     GmailApi(reqwest::Error),
     #[error("Outlook API error: {0}")]
@@ -31,6 +33,7 @@ pub enum AppError {
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status, error_message) = match &self {
+            AppError::Reqwest(ref e) => (StatusCode::BAD_GATEWAY, "Network or API error"),
             AppError::GmailApi(ref e) => {
                 if let Some(reqwest_status) = e.status() {
                     let status_code = StatusCode::from_u16(reqwest_status.as_u16())
