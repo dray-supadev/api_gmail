@@ -75,8 +75,8 @@ impl EmailProvider for OutlookProvider {
                 thread_id: m["conversationId"].as_str().unwrap_or("").to_string(),
                 snippet: m["bodyPreview"].as_str().unwrap_or("").to_string(),
                 subject: m["subject"].as_str().map(|s| s.to_string()),
-                from: m["from"]["emailAddress"]["name"].as_str()
-                    .or_else(|| m["from"]["emailAddress"]["address"].as_str())
+                from: m["from"]["emailAddress"]["address"].as_str()
+                    .or_else(|| m["from"]["emailAddress"]["name"].as_str())
                     .map(|s| s.to_string()),
                 date: m["receivedDateTime"].as_str().map(|s| s.to_string()),
                 unread: !m["isRead"].as_bool().unwrap_or(true),
