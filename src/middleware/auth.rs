@@ -22,7 +22,11 @@ pub async fn verify_api_key(
         .and_then(|value| value.to_str().ok());
 
     let is_valid = match api_key {
-        Some(key) => key == state.config.app_secret_key,
+        Some(key) => {
+            let matches_app_key = key == state.config.app_secret_key;
+            let matches_bubble_key = !state.config.bubble_api_token.is_empty() && key == state.config.bubble_api_token;
+            matches_app_key || matches_bubble_key
+        },
         None => false,
     };
 
