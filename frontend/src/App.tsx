@@ -84,12 +84,23 @@ function App() {
       .catch(err => {
         console.error("Failed to load messages:", err);
         setMessages([]);
-        if (err.message === "Unauthorized") {
+        if (err.message.includes("401") || err.message === "Unauthorized") {
           setAuthError(true);
         }
       })
       .finally(() => setLoading(false));
   }, [activeToken, provider, selectedLabelId, searchQuery]);
+
+  // Initial debug log
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    console.log("Widget initialized with:", {
+      hasGoogleToken: !!(params.get("gmailToken") || params.get("token")),
+      hasOutlookToken: !!params.get("outlookToken"),
+      hasApiKey: !!params.get("apiKey"),
+      provider
+    });
+  }, []);
 
   const handleClose = useCallback(() => {
     window.parent.postMessage({ type: 'GMAIL_WIDGET_CLOSE' }, '*');

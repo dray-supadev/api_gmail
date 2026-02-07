@@ -20,7 +20,7 @@ pub struct ProviderParams {
 }
 
 fn get_token(headers: &HeaderMap) -> Result<&str, AppError> {
-    headers
+    let token = headers
         .get("Authorization")
         .and_then(|h| h.to_str().ok())
         .map(|t| t.trim_start_matches("Bearer "))
@@ -29,7 +29,10 @@ fn get_token(headers: &HeaderMap) -> Result<&str, AppError> {
              headers.get("x-google-token").and_then(|h| h.to_str().ok())
         })
         .map(|t| t.trim())
-        .ok_or(AppError::MissingToken)
+        .filter(|t| !t.is_empty())
+        .ok_or(AppError::MissingToken)?;
+    
+    Ok(token)
 }
 
 fn get_provider(params: &ProviderParams, client: reqwest::Client) -> Box<dyn EmailProvider> {

@@ -44,6 +44,20 @@ const API_BASE = import.meta.env.PROD ? "" : "http://localhost:3000";
 
 let globalApiKey: string | null = null;
 
+async function handleResponse(res: Response) {
+    if (!res.ok) {
+        let errorMessage = `Error: ${res.status}`;
+        try {
+            const errorData = await res.json();
+            errorMessage = errorData.error || errorData.details || errorMessage;
+        } catch (e) {
+            // fallback to status text
+        }
+        throw new Error(errorMessage);
+    }
+    return res.json();
+}
+
 export const api = {
     setApiKey(key: string) {
         globalApiKey = key;
@@ -61,9 +75,7 @@ export const api = {
                 ...(globalApiKey ? { "x-api-key": globalApiKey } : {})
             }
         });
-        if (res.status === 401) throw new Error("Unauthorized");
-        if (!res.ok) throw new Error("Failed to fetch messages");
-        const data = await res.json();
+        const data = await handleResponse(res);
         return data.messages || [];
     },
 
@@ -74,8 +86,7 @@ export const api = {
                 ...(globalApiKey ? { "x-api-key": globalApiKey } : {})
             }
         });
-        if (!res.ok) throw new Error("Failed to fetch labels");
-        return await res.json();
+        return await handleResponse(res);
     },
 
     async modifyLabels(token: string, provider: string, req: BatchModifyRequest) {
@@ -88,8 +99,7 @@ export const api = {
             },
             body: JSON.stringify(req)
         });
-        if (!res.ok) throw new Error("Failed to modify labels");
-        return await res.json();
+        return await handleResponse(res);
     },
 
     async previewQuote(params: QuotePreviewParams) {
@@ -101,12 +111,7 @@ export const api = {
             },
             body: JSON.stringify(params)
         });
-
-        if (!res.ok) {
-            const text = await res.text();
-            throw new Error(`Failed to preview: ${res.status} ${text}`);
-        }
-        return await res.json();
+        return await handleResponse(res);
     },
 
     async sendQuote(token: string, req: SendQuoteRequest) {
@@ -119,7 +124,6 @@ export const api = {
             },
             body: JSON.stringify(req)
         });
-        if (!res.ok) throw new Error("Failed to send quote");
-        return await res.json();
+        return await handleResponse(res);
     }
 };

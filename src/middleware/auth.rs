@@ -21,8 +21,19 @@ pub async fn verify_api_key(
         .get("x-api-key")
         .and_then(|value| value.to_str().ok());
 
-    match api_key {
-        Some(key) if key == state.config.app_secret_key => Ok(next.run(request).await),
-        _ => Err(StatusCode::UNAUTHORIZED),
+    let is_valid = match api_key {
+        Some(key) => key == state.config.app_secret_key,
+        None => false,
+    };
+
+    if is_valid {
+        Ok(next.run(request).await)
+    } else {
+        tracing::warn!("Unauthorized access attempt. Provided key: {:?}", api_key);
+        let body = serde_json::json!({
+            "error": "Invalid or missing x-api-key header",
+            "details": "The application secret key is required for this endpoint."
+        });
+        Ok((StatusCode::UNAUTHORIZED, axum::Json(body)).into_response())
     }
 }
