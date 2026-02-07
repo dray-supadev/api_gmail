@@ -122,8 +122,8 @@ impl EmailProvider for OutlookProvider {
         let to = data["toRecipients"].as_array().map(|recipients| {
             recipients.iter()
                 .filter_map(|r| r["emailAddress"]["address"].as_str())
-                .map(|s| s.to_string())
-                .collect::<Vec<String>>()
+                .collect::<Vec<&str>>()
+                .join(", ")
         });
 
         Ok(CleanMessage {
