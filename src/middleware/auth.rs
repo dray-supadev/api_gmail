@@ -4,10 +4,10 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use crate::config::Config;
+use crate::state::AppState;
 
 pub async fn verify_api_key(
-    State(config): State<Config>,
+    State(state): State<AppState>,
     headers: HeaderMap,
     request: Request,
     next: Next,
@@ -22,7 +22,7 @@ pub async fn verify_api_key(
         .and_then(|value| value.to_str().ok());
 
     match api_key {
-        Some(key) if key == config.app_secret_key => Ok(next.run(request).await),
+        Some(key) if key == state.config.app_secret_key => Ok(next.run(request).await),
         _ => Err(StatusCode::UNAUTHORIZED),
     }
 }

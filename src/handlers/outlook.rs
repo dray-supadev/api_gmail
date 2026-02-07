@@ -4,27 +4,25 @@ use serde_json::json;
 use crate::error::AppError;
 use super::provider::{EmailProvider, CleanMessage, SendMessageRequest, ListParams, Label, BatchModifyRequest};
 
-pub struct OutlookProvider;
+pub struct OutlookProvider {
+    client: Client,
+}
 
 impl OutlookProvider {
-    pub fn new() -> Self {
-        Self
+    pub fn new(client: Client) -> Self {
+        Self { client }
     }
 }
 
 #[async_trait]
 impl EmailProvider for OutlookProvider {
     async fn list_messages(&self, token: &str, params: ListParams) -> Result<serde_json::Value, AppError> {
-        let client = Client::new();
-        let mut url = "https://graph.microsoft.com/v1.0/me/messages".to_string();
-        
         let mut query = Vec::new();
         query.push("$select=id,subject,from,receivedDateTime,isRead,hasAttachments,bodyPreview,conversationId".to_string());
-        query.push("$top=10".to_string()); // Default top
         
-        if let Some(max) = params.max_results {
-            query.push(format!("$top={}", max));
-        }
+        // Fixed Point 12: Avoid duplicate $top
+        let top = params.max_results.unwrap_or(10);
+        query.push(format!("$top={}", top));
         
         // Outlook pagination uses $skip or $deltatoken/skiptoken, but simpler to rely on @odata.nextLink provided by API
         // If parameters contain a direct link (from next_page_token hack), use it.
@@ -45,13 +43,14 @@ impl EmailProvider for OutlookProvider {
             url = format!("{}?{}", url, query.join("&"));
         }
 
-        let res = client.get(&url)
+        let res = self.client.get(&url)
             .bearer_auth(token)
             .send()
             .await?;
 
         if !res.status().is_success() {
-             return Err(AppError::GmailApi(res.error_for_status().unwrap_err()));
+             // Fixed Point 10: Specific Outlook error
+             return Err(AppError::OutlookApi(res.error_for_status().unwrap_err()));
         }
 
         let data: serde_json::Value = res.json().await?;
@@ -64,17 +63,17 @@ impl EmailProvider for OutlookProvider {
     }
 
     async fn get_message(&self, token: &str, id: &str) -> Result<CleanMessage, AppError> {
-        let client = Client::new();
         let url = format!("https://graph.microsoft.com/v1.0/me/messages/{}", id);
         
-        let res = client.get(&url)
+        let res = self.client.get(&url)
             .bearer_auth(token)
             .header("Prefer", "outlook.body-content-type=\"text\"") 
             .send()
             .await?;
 
         if !res.status().is_success() {
-             return Err(AppError::GmailApi(res.error_for_status().unwrap_err()));
+             // Fixed Point 10
+             return Err(AppError::OutlookApi(res.error_for_status().unwrap_err()));
         }
         
         let data: serde_json::Value = res.json().await?;
@@ -104,13 +103,7 @@ impl EmailProvider for OutlookProvider {
         })
     }
     
-    async fn get_thread(&self, _token: &str, _id: &str) -> Result<serde_json::Value, AppError> {
-        // Outlook "conversationId" is not exactly threadId in Gmail sense, but close.
-        Ok(json!({}))
-    }
-
     async fn send_message(&self, token: &str, req: SendMessageRequest) -> Result<serde_json::Value, AppError> {
-         let client = Client::new();
          let url = "https://graph.microsoft.com/v1.0/me/sendMail";
          
          let recipients: Vec<serde_json::Value> = req.to.iter().map(|email| {
@@ -147,31 +140,32 @@ impl EmailProvider for OutlookProvider {
              "saveToSentItems": "true"
          });
 
-         let res = client.post(url)
+         let res = self.client.post(url)
             .bearer_auth(token)
             .json(&body)
             .send()
             .await?;
             
          if !res.status().is_success() {
-             return Err(AppError::GmailApi(res.error_for_status().unwrap_err()));
+             // Fixed Point 10
+             return Err(AppError::OutlookApi(res.error_for_status().unwrap_err()));
          }
          
          Ok(json!({"status": "sent"}))
     }
 
     async fn list_labels(&self, token: &str) -> Result<Vec<Label>, AppError> {
-        let client = Client::new();
         let url = "https://graph.microsoft.com/v1.0/me/mailFolders?$top=99";
 
-        let res = client
+        let res = self.client
             .get(url)
             .bearer_auth(token)
             .send()
             .await?;
 
         if !res.status().is_success() {
-            return Err(AppError::GmailApi(res.error_for_status().unwrap_err()));
+            // Fixed Point 10
+            return Err(AppError::OutlookApi(res.error_for_status().unwrap_err()));
         }
 
         let data: serde_json::Value = res.json().await?;
@@ -203,7 +197,7 @@ impl EmailProvider for OutlookProvider {
                     "destinationId": folder_id
                 });
 
-                let res = client
+                let res = self.client
                     .post(&url)
                     .bearer_auth(token)
                     .json(&body)
@@ -211,7 +205,8 @@ impl EmailProvider for OutlookProvider {
                     .await?;
 
                 if !res.status().is_success() {
-                    return Err(AppError::GmailApi(res.error_for_status().unwrap_err()));
+                    // Fixed Point 10
+                    return Err(AppError::OutlookApi(res.error_for_status().unwrap_err()));
                 }
             }
         }

@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -7,11 +8,13 @@ interface MessageListProps {
     messages: Message[]
     selectedId: string | null
     onSelect: (id: string) => void
+    onSearch: (query: string) => void
     labelName?: string
 }
 
-export function MessageList({ messages, selectedId, onSelect, labelName = "Inbox" }: MessageListProps) {
-    if (!messages.length) {
+export function MessageList({ messages, selectedId, onSelect, onSearch, labelName = "Inbox" }: MessageListProps) {
+    const [searchText, setSearchText] = useState("")
+    if (!messages.length && !searchText) {
         return (
             <div className="flex flex-col h-full border-r bg-background w-80 lg:w-96">
                 <div className="p-4 border-b space-y-4">
@@ -33,6 +36,13 @@ export function MessageList({ messages, selectedId, onSelect, labelName = "Inbox
                         type="text"
                         placeholder="Search emails..."
                         className="w-full bg-secondary text-sm pl-9 pr-4 py-2 rounded-md outline-none focus:ring-1 focus:ring-ring"
+                        value={searchText}
+                        onChange={(e) => setSearchText(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                onSearch(searchText);
+                            }
+                        }}
                     />
                 </div>
             </div>

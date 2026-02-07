@@ -9,10 +9,12 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum AppError {
     #[error("Gmail API error: {0}")]
-    GmailApi(#[from] reqwest::Error),
+    GmailApi(reqwest::Error),
+    #[error("Outlook API error: {0}")]
+    OutlookApi(reqwest::Error),
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
-    #[error("Missing Google Token")]
+    #[error("Missing Token")]
     MissingToken,
     #[error("Internal error: {0}")]
     Internal(#[from] anyhow::Error),
@@ -31,7 +33,6 @@ impl IntoResponse for AppError {
         let (status, error_message) = match &self {
             AppError::GmailApi(ref e) => {
                 if let Some(reqwest_status) = e.status() {
-                    // Convert reqwest::StatusCode (http 0.2) to axum::http::StatusCode (http 1.0)
                     let status_code = StatusCode::from_u16(reqwest_status.as_u16())
                         .unwrap_or(StatusCode::BAD_GATEWAY);
                     
@@ -44,7 +45,21 @@ impl IntoResponse for AppError {
                     (StatusCode::BAD_GATEWAY, "Failed to reach Gmail API")
                 }
             },
-            AppError::MissingToken => (StatusCode::UNAUTHORIZED, "Missing x-google-token header"),
+            AppError::OutlookApi(ref e) => {
+                if let Some(reqwest_status) = e.status() {
+                    let status_code = StatusCode::from_u16(reqwest_status.as_u16())
+                        .unwrap_or(StatusCode::BAD_GATEWAY);
+                    
+                    if status_code == StatusCode::UNAUTHORIZED {
+                        (StatusCode::UNAUTHORIZED, "Invalid or expired Microsoft Token")
+                    } else {
+                        (status_code, "Outlook API returned an error")
+                    }
+                } else {
+                    (StatusCode::BAD_GATEWAY, "Failed to reach Microsoft Graph API")
+                }
+            },
+            AppError::MissingToken => (StatusCode::UNAUTHORIZED, "Missing Authorization header"),
             AppError::BadRequest(ref msg) => (StatusCode::BAD_REQUEST, msg.as_str()),
             AppError::Config(ref msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.as_str()),
             AppError::BubbleApi(ref e) => {

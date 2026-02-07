@@ -42,7 +42,13 @@ export interface SendQuoteRequest {
 
 const API_BASE = import.meta.env.PROD ? "" : "http://localhost:3000";
 
+let globalApiKey: string | null = null;
+
 export const api = {
+    setApiKey(key: string) {
+        globalApiKey = key;
+    },
+
     async listMessages(token: string, provider: string, params?: { label_ids?: string, q?: string, max_results?: number }): Promise<Message[]> {
         let url = `${API_BASE}/api/messages?provider=${provider}`;
         if (params?.label_ids) url += `&label_ids=${params.label_ids}`;
@@ -51,7 +57,8 @@ export const api = {
 
         const res = await fetch(url, {
             headers: {
-                "Authorization": `Bearer ${token}`
+                "Authorization": `Bearer ${token}`,
+                ...(globalApiKey ? { "x-api-key": globalApiKey } : {})
             }
         });
         if (res.status === 401) throw new Error("Unauthorized");
@@ -63,7 +70,8 @@ export const api = {
     async listLabels(token: string, provider: string): Promise<Label[]> {
         const res = await fetch(`${API_BASE}/api/labels?provider=${provider}`, {
             headers: {
-                "Authorization": `Bearer ${token}`
+                "Authorization": `Bearer ${token}`,
+                ...(globalApiKey ? { "x-api-key": globalApiKey } : {})
             }
         });
         if (!res.ok) throw new Error("Failed to fetch labels");
@@ -75,7 +83,8 @@ export const api = {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
+                "Authorization": `Bearer ${token}`,
+                ...(globalApiKey ? { "x-api-key": globalApiKey } : {})
             },
             body: JSON.stringify(req)
         });
@@ -83,21 +92,12 @@ export const api = {
         return await res.json();
     },
 
-    async getThread(token: string, provider: string, threadId: string) {
-        const res = await fetch(`${API_BASE}/api/threads/${threadId}?provider=${provider}`, {
-            headers: {
-                "Authorization": `Bearer ${token}`
-            }
-        });
-        if (!res.ok) throw new Error("Failed to fetch thread");
-        return await res.json();
-    },
-
     async previewQuote(params: QuotePreviewParams) {
         const res = await fetch(`${API_BASE}/api/quote/preview`, {
             method: "POST",
             headers: {
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                ...(globalApiKey ? { "x-api-key": globalApiKey } : {})
             },
             body: JSON.stringify(params)
         });
@@ -114,7 +114,8 @@ export const api = {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
+                "Authorization": `Bearer ${token}`,
+                ...(globalApiKey ? { "x-api-key": globalApiKey } : {})
             },
             body: JSON.stringify(req)
         });

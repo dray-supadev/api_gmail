@@ -70,7 +70,6 @@ pub struct BatchModifyRequest {
 pub trait EmailProvider: Send + Sync {
     async fn list_messages(&self, token: &str, params: ListParams) -> Result<serde_json::Value, AppError>;
     async fn get_message(&self, token: &str, id: &str) -> Result<CleanMessage, AppError>;
-    async fn get_thread(&self, token: &str, id: &str) -> Result<serde_json::Value, AppError>;
     async fn send_message(&self, token: &str, req: SendMessageRequest) -> Result<serde_json::Value, AppError>;
     async fn list_labels(&self, token: &str) -> Result<Vec<Label>, AppError>;
     async fn batch_modify_labels(&self, token: &str, req: BatchModifyRequest) -> Result<(), AppError>;

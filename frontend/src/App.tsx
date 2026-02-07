@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { MessageList } from './components/MessageList'
-import { ThreadView } from './components/ThreadView'
 import { QuotePreview } from './components/QuotePreview'
 import { api } from './api'
 import type { Message, Label } from './api'
@@ -26,6 +25,7 @@ function App() {
   const [selectedLabelId, setSelectedLabelId] = useState<string>("INBOX")
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
 
   // Error state for session expiry
   const [authError, setAuthError] = useState(false)
@@ -40,9 +40,11 @@ function App() {
     const gmailToken = params.get("gmailToken") || undefined;
     const outlookToken = params.get("outlookToken") || undefined;
     const t = params.get("token") || "";
+    const apiKey = params.get("apiKey");
 
     setTokens({ gmail: gmailToken, outlook: outlookToken });
     setLegacyToken(t);
+    if (apiKey) api.setApiKey(apiKey);
 
     const p = params.get("provider");
     if (p === "gmail" || p === "outlook") setProvider(p);
@@ -74,9 +76,10 @@ function App() {
     if (!activeToken) return;
     setLoading(true);
 
-    // If "SEARCH" or specific query is needed, use q. 
-    // Otherwise use labelIds.
-    api.listMessages(activeToken, provider, { label_ids: selectedLabelId })
+    api.listMessages(activeToken, provider, {
+      label_ids: selectedLabelId,
+      q: searchQuery || undefined
+    })
       .then(setMessages)
       .catch(err => {
         console.error("Failed to load messages:", err);
@@ -86,7 +89,7 @@ function App() {
         }
       })
       .finally(() => setLoading(false));
-  }, [activeToken, provider, selectedLabelId]);
+  }, [activeToken, provider, selectedLabelId, searchQuery]);
 
   const handleClose = useCallback(() => {
     window.parent.postMessage({ type: 'GMAIL_WIDGET_CLOSE' }, '*');
@@ -130,6 +133,7 @@ function App() {
           messages={messages}
           selectedId={selectedThreadId}
           onSelect={setSelectedThreadId}
+          onSearch={setSearchQuery}
           labelName={labels.find(l => l.id === selectedLabelId)?.name || "Inbox"}
         />
       )}
@@ -181,19 +185,16 @@ function App() {
             </div>
           )
         ) : (
-          // NORMAL READING MODE
-          <ThreadView
-            threadId={selectedThreadId}
-            token={activeToken}
-            provider={provider}
-            labels={labels}
-            onMove={() => {
-              setSelectedThreadId(null);
-              // Trigger refresh of messages
-              setMessages([]);
-              api.listMessages(activeToken!, provider, { label_ids: selectedLabelId }).then(setMessages);
-            }}
-          />
+          // NO QUOTE ID or NO TOKEN
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground space-y-4">
+            <div className="p-4 rounded-full bg-slate-100">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <p className="font-medium text-lg">Waiting for configuration...</p>
+            <p className="text-sm max-w-xs text-center">Please ensure the widget is opened from a valid Quote page in Bubble.</p>
+          </div>
         )}
 
       </div>

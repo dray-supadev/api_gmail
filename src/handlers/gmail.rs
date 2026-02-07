@@ -9,24 +9,27 @@ use mail_parser::{MessageParser, MimeHeaders};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 // --- Global Pagination Cache ---
 use std::sync::{Mutex};
-use std::collections::HashMap;
 use std::sync::OnceLock;
+use lru::LruCache;
+use std::num::NonZeroUsize;
 
 use super::provider::{EmailProvider, CleanMessage, MessageSummary, AttachmentSummary, SendMessageRequest, ListParams, Label, BatchModifyRequest};
 
 // Key for the cache: (Google Token Hash + Query Params Hash) -> Page Number -> Gmail Token
-// We use a simple string key: "{token_hash}_{query}_{labels}_{max}_{page}"
-static PAGINATION_CACHE: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+// Fixed Point 7: Use LRU cache to prevent memory leak
+static PAGINATION_CACHE: OnceLock<Mutex<LruCache<String, String>>> = OnceLock::new();
 
-fn get_cache() -> &'static Mutex<HashMap<String, String>> {
-    PAGINATION_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+fn get_cache() -> &'static Mutex<LruCache<String, String>> {
+    PAGINATION_CACHE.get_or_init(|| Mutex::new(LruCache::new(NonZeroUsize::new(1000).unwrap())))
 }
 
-pub struct GmailProvider;
+pub struct GmailProvider {
+    client: Client,
+}
 
 impl GmailProvider {
-    pub fn new() -> Self {
-        Self
+    pub fn new(client: Client) -> Self {
+        Self { client }
     }
 
     // Helper to fetch and parse a single message fully
@@ -169,7 +172,7 @@ impl EmailProvider for GmailProvider {
         token: &str,
         params: ListParams,
     ) -> Result<serde_json::Value, AppError> {
-        let client = Client::new();
+        let client = &self.client; // Fixed Point 14
 
         let mut url = "https://gmail.googleapis.com/gmail/v1/users/me/messages".to_string();
         
@@ -196,7 +199,8 @@ impl EmailProvider for GmailProvider {
             let key = format!("{}_{}", cache_key_prefix, page_num);
             
             // Try to get token from cache
-            let cache = get_cache().lock().unwrap();
+            // Fixed Point 17: Safe lock
+            let mut cache = get_cache().lock().unwrap_or_else(|e| e.into_inner());
             match cache.get(&key) {
                 Some(t) => Some(t.clone()),
                 None => {
@@ -261,8 +265,8 @@ impl EmailProvider for GmailProvider {
             let next_page_num = page_num + 1;
             let key = format!("{}_{}", cache_key_prefix, next_page_num);
             
-            let mut cache = get_cache().lock().unwrap();
-            cache.insert(key, next_token.to_string());
+            let mut cache = get_cache().lock().unwrap_or_else(|e| e.into_inner());
+            cache.put(key, next_token.to_string());
         }
         
         // Extract message IDs
@@ -309,10 +313,24 @@ impl EmailProvider for GmailProvider {
         // Wait for all tasks to complete
         let results = futures::future::join_all(tasks).await;
         
-        let mut enriched_messages: Vec<MessageSummary> = results
+        let enriched_messages: Vec<MessageSummary> = results
             .into_iter()
-            .filter_map(|r| r.ok().and_then(|m| m.ok()))
+            .filter_map(|r| {
+                match r {
+                    Ok(Ok(m)) => Some(m),
+                    Ok(Err(e)) => {
+                        tracing::error!("Failed to fetch message metadata: {:?}", e);
+                        None
+                    }
+                    Err(e) => {
+                        tracing::error!("Join error in list_messages: {:?}", e);
+                        None
+                    }
+                }
+            })
             .collect();
+
+        let mut enriched_messages = enriched_messages;
 
         // If collapse_threads is enabled, group by thread_id and keep only the latest message
         if params.collapse_threads.unwrap_or(false) {
@@ -356,82 +374,19 @@ impl EmailProvider for GmailProvider {
     }
 
     async fn get_message(&self, token: &str, id: &str) -> Result<CleanMessage, AppError> {
-        let client = Client::new();
-        self.fetch_and_parse_message(&client, token, id).await
-    }
-
-    async fn get_thread(&self, token: &str, thread_id: &str) -> Result<serde_json::Value, AppError> {
-        let client = Client::new();
-
-        // 1. Fetch thread details (minimal format) just to get message IDs
-        let url = format!(
-            "https://gmail.googleapis.com/gmail/v1/users/me/threads/{}?format=minimal",
-            thread_id
-        );
-        
-        let res = client
-            .get(&url)
-            .bearer_auth(token)
-            .send()
-            .await?;
-        
-        if !res.status().is_success() {
-            return Err(AppError::GmailApi(res.error_for_status().unwrap_err()));
-        }
-        
-        let data: serde_json::Value = res.json().await?;
-        
-        // Extract message IDs
-        const EMPTY_ARRAY: &[serde_json::Value] = &[];
-        let messages_data = data["messages"].as_array().map_or(EMPTY_ARRAY, |v| v.as_slice());
-        
-        // 2. Fetch and parse each message in parallel
-        let mut tasks = Vec::new();
-
-        for msg_data in messages_data {
-            let id = msg_data["id"].as_str().unwrap_or("").to_string();
-            let client_clone = client.clone();
-            let token_clone = token.to_string();
-            
-            tasks.push(tokio::spawn(async move {
-                let provider = GmailProvider::new();
-                provider.fetch_and_parse_message(&client_clone, &token_clone, &id).await
-            }));
-        }
-        
-        // Wait for all tasks to complete
-        let results = futures::future::join_all(tasks).await;
-        
-        let mut messages: Vec<CleanMessage> = results
-            .into_iter()
-            .filter_map(|r| r.ok().and_then(|m| m.ok()))
-            .collect();
-
-        // 3. Sort by date (oldest first for thread view - chronological order)
-        messages.sort_by(|a, b| {
-            let date_a = a.date.as_deref().unwrap_or("");
-            let date_b = b.date.as_deref().unwrap_or("");
-            date_a.cmp(date_b)
-        });
-        
-        Ok(json!({
-            "thread_id": thread_id,
-            "message_count": messages.len(),
-            "messages": messages
-        }))
+        self.fetch_and_parse_message(&self.client, token, id).await
     }
 
     async fn send_message(&self, token: &str, req: SendMessageRequest) -> Result<serde_json::Value, AppError> {
-        let client = Client::new();
-
         let to_header = req.to.join(", ");
-        let boundary = "boundary_1234567890"; // Simple static boundary
+        // Fixed Point 15: Unique boundary
+        let boundary = format!("boundary_{}", uuid::Uuid::new_v4()); 
 
         let mut email_content = String::new();
         email_content.push_str(&format!("To: {}\r\n", to_header));
         email_content.push_str(&format!("Subject: {}\r\n", req.subject));
         
-        let has_attachments = req.attachments.as_ref().map_or(false, |atts| !atts.is_empty());
+        let _has_attachments = req.attachments.as_ref().map_or(false, |atts| !atts.is_empty());
 
         // Always use multipart/mixed for consistency and correct rendering
         email_content.push_str("MIME-Version: 1.0\r\n");
@@ -468,7 +423,7 @@ impl EmailProvider for GmailProvider {
             "raw": raw_encoded
         });
 
-        let res = client
+        let res = self.client
             .post("https://gmail.googleapis.com/gmail/v1/users/me/messages/send")
             .bearer_auth(token)
             .json(&body)
@@ -484,10 +439,9 @@ impl EmailProvider for GmailProvider {
     }
 
     async fn list_labels(&self, token: &str) -> Result<Vec<Label>, AppError> {
-        let client = Client::new();
         let url = "https://gmail.googleapis.com/gmail/v1/users/me/labels";
 
-        let res = client
+        let res = self.client
             .get(url)
             .bearer_auth(token)
             .send()
@@ -513,7 +467,6 @@ impl EmailProvider for GmailProvider {
     }
 
     async fn batch_modify_labels(&self, token: &str, req: BatchModifyRequest) -> Result<(), AppError> {
-        let client = Client::new();
         let url = "https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify";
 
         let body = json!({
@@ -522,7 +475,7 @@ impl EmailProvider for GmailProvider {
             "removeLabelIds": req.remove_label_ids.unwrap_or_default(),
         });
 
-        let res = client
+        let res = self.client
             .post(url)
             .bearer_auth(token)
             .json(&body)

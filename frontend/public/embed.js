@@ -81,6 +81,8 @@
             if (config.provider) url.searchParams.set("provider", config.provider);
             if (config.quoteId) url.searchParams.set("quoteId", config.quoteId);
             if (config.bubbleVersion) url.searchParams.set("bubbleVersion", config.bubbleVersion);
+            if (config.apiKey) url.searchParams.set("apiKey", config.apiKey); // Pass API Key
+
             if (config.pdfExportSettings) {
                 // Assuming it's an array of strings
                 if (Array.isArray(config.pdfExportSettings)) {
@@ -96,10 +98,18 @@
             iframe.style.border = "none";
 
             container.appendChild(iframe);
+
+            // Store appOrigin for origin check
+            window.GmailOutlookWidget.appOrigin = new URL(iframe.src).origin;
         }
     };
     // Listen for close message from the iframe
     window.addEventListener("message", function (event) {
+        // Fixed Point 6: Verify origin
+        if (window.GmailOutlookWidget.appOrigin && event.origin !== window.GmailOutlookWidget.appOrigin) {
+            return;
+        }
+
         if (event.data && event.data.type === "GMAIL_WIDGET_CLOSE") {
             const container = document.getElementById("gmail-outlook-widget-container");
             if (container) {
