@@ -236,7 +236,7 @@ function App() {
         labels={labels}
         selectedLabelId={selectedLabelId}
         onLabelSelect={setSelectedLabelId}
-        gmailDisabled={!tokens.gmail && !legacyToken} // Simplified logic: if no token, disable
+        gmailDisabled={!tokens.gmail && !legacyToken}
         outlookDisabled={!tokens.outlook}
       />
 
@@ -332,19 +332,16 @@ function App() {
               <p className="text-sm max-w-xs text-center">Please ensure the widget is opened from a valid Quote page in Bubble.</p>
             </div>
         )}
-
           </div>
 
-      {/* Global Close Button when no conversation is selected (Request 5) */}
-        {!selectedThreadId && (
-          <button
-            onClick={handleClose}
-            className="fixed top-5 right-5 p-2 rounded-full bg-white hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all z-[99999] shadow-lg border border-slate-200"
-            title="Закрыть"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        )}
+      {/* Global Close Button (Always visible) */}
+        <button
+          onClick={handleClose}
+          className="fixed top-5 right-5 p-2 rounded-full bg-white hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all z-[99999] shadow-lg border border-slate-200"
+          title="Закрыть"
+        >
+          <X className="w-6 h-6" />
+        </button>
       </div>
       )
 }
