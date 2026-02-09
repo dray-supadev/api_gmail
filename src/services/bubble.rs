@@ -158,8 +158,8 @@ impl BubbleService {
             .map_err(|e| AppError::BadRequest(format!("Mime error: {}", e)))?;
 
         let form = multipart::Form::new()
+            .part("pdf", part) // Put file first, sometimes helps
             .text("quote", quote_id.to_string())
-            .part("pdf", part)
             .text("recipients", recipients_json)
             .text("cc", cc_json)
             .text("pdfname", pdf_name.to_string())
