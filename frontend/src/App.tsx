@@ -169,7 +169,7 @@ function App() {
       setMessages(prev => prev.filter(m => m.id !== messageId));
       if (selectedThreadId === messageId) {
         setSelectedThreadId(null);
-        setQuoteId(null); // Close composer if open
+        // Do NOT clear quoteId, otherwise we lose the widget context
       }
 
       const req: any = {
