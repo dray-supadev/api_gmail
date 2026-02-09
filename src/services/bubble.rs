@@ -40,7 +40,7 @@ impl BubbleService {
         Ok(body)
     }
 
-    pub async fn generate_pdf_via_workflow(&self, quote_id: &str, version: Option<&str>, settings: Option<Vec<String>>) -> Result<(Vec<u8>, String), AppError> {
+    pub async fn generate_pdf_via_workflow(&self, quote_id: &str, version: Option<&str>, settings: Option<Vec<String>>) -> Result<(Vec<u8>, String, String), AppError> {
         let version_path = version.unwrap_or("version-test");
         let url = format!("{}/{}/api/1.1/wf/get_quote_json", self.base_url, version_path);
         
@@ -86,7 +86,7 @@ impl BubbleService {
         }
         let pdf_bytes = pdf_res.bytes().await?.to_vec();
 
-        Ok((pdf_bytes, pdf_name))
+        Ok((pdf_bytes, pdf_name, pdf_url_fixed))
     }
 
     pub async fn fetch_quote_preview(&self, quote_id: &str, version: Option<&str>, settings: Option<Vec<String>>) -> Result<(String, Option<String>), AppError> {
@@ -133,56 +133,42 @@ impl BubbleService {
         &self,
         quote_id: &str,
         version: Option<&str>,
-        pdf_bytes: Option<Vec<u8>>,
         pdf_name: &str,
         recipients: Vec<String>,
         cc: Vec<String>,
         subject: &str,
         maildata_identificator: &str,
         pdf_export_settings: Vec<String>,
-        pdf_url: Option<String>,
+        pdf_url: String, // Changed from Option<String> + Option<Vec<u8>> to just String (URL)
     ) -> Result<String, AppError> {
+        // User Requirement 4: Dynamic version usage
+        // We use the provided version or fallback to "version-test" locally, 
+        // but the caller (JS) is expected to provide it.
         let version_path = version.unwrap_or("version-test");
         let url = format!("{}/{}/api/1.1/wf/send_quote", self.base_url, version_path);
 
-        // Convert lists to JSON strings as Bubble likely expects them this way in multipart form
+        // Convert lists to JSON strings
         let recipients_json = serde_json::to_string(&recipients).unwrap_or_else(|_| "[]".to_string());
         let cc_json = serde_json::to_string(&cc).unwrap_or_else(|_| "[]".to_string());
-        // Fix Point 2: PDFExportSettings - JSON array of strings
         let settings_json = serde_json::to_string(&pdf_export_settings).unwrap_or_else(|_| "[]".to_string());
         
-        let mut form = multipart::Form::new()
+        // User Requirement 5: Pass only text (URL) for PDF
+        // Ensure proper protocol
+        let final_pdf_url = if pdf_url.starts_with("//") {
+            format!("https:{}", pdf_url)
+        } else {
+            pdf_url.to_string()
+        };
+
+        let form = multipart::Form::new()
             .text("quote", quote_id.to_string())
             .text("recipients", recipients_json)
             .text("cc", cc_json)
             .text("pdfname", pdf_name.to_string())
             .text("subject", subject.to_string())
             .text("maildata_Identificator", maildata_identificator.to_string())
-            .text("PDFExportSettings", settings_json);
-
-        if let Some(url_str) = pdf_url {
-            let final_url = if url_str.starts_with("//") {
-                format!("https:{}", url_str)
-            } else {
-                url_str
-            };
-            form = form.text("pdf", final_url);
-        } else if let Some(bytes) = pdf_bytes {
-            // Fix Point 3: Filename should not contain path separators for multipart form
-            // Some systems will reject or misinterpret "folder/file.pdf"
-            let safe_filename = pdf_name.split('/').last().unwrap_or("file.pdf");
-    
-            // Create the multipart form
-            // Using mimetype application/pdf
-            let part = multipart::Part::bytes(bytes)
-                .file_name(safe_filename.to_string())
-                .mime_str("application/pdf")
-                .map_err(|e| AppError::BadRequest(format!("Mime error: {}", e)))?;
-            
-            form = form.part("pdf", part);
-        } else {
-             return Err(AppError::BadRequest("Either pdf_url or pdf_bytes must be provided".to_string()));
-        }
+            .text("PDFExportSettings", settings_json)
+            .text("pdf", final_pdf_url); // Only URL as text
 
         let res = self.client.post(&url)
             .bearer_auth(&self.api_token)
@@ -199,8 +185,6 @@ impl BubbleService {
 
         let body: Value = res.json().await?;
         
-        // Extract HTML from response
-        // Expected response format: { "response": { "html": "..." } }
         let html_content = body["response"]["html"].as_str()
             .ok_or_else(|| AppError::BadGateway("Bubble did not return html content in response".to_string()))?
             .to_string();

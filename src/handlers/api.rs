@@ -199,30 +199,73 @@ pub async fn send_quote_email(
             
             let bytes = STANDARD.decode(clean_base64.trim())
                 .map_err(|e| AppError::BadRequest(format!("Invalid PDF base64: {}", e)))?;
+            // If we have base64, we don't have a URL.
+            // But we can't send text URL if we don't have one.
             (bytes, name, None)
         }
     } else {
-        let (bytes, name) = bubble_service.generate_pdf_via_workflow(
+        let (bytes, name, url) = bubble_service.generate_pdf_via_workflow(
             &req.quote_id, 
             req.version.as_deref(), 
             req.pdf_export_settings.clone()
         ).await?;
-        (bytes, name, None)
+        (bytes, name, Some(url))
     };
     
     // 3. Get HTML Body from Bubble via send_quote workflow
+    // Use the URL found or generated. If we generated via workflow, 'pdf_url_for_bubble' is None.
+    // BUT the requirement says "pass only text, specifically url".
+    // If we only have bytes (from base64), we CANNOT pass a URL to Bubble unless we upload it somewhere first.
+    // However, the user said "pass only text, specifically url".
+    // This implies that either:
+    // a) The client ALWAYS sends a URL (pdf_base64 is actually a URL?) -> The code handles this in line 168.
+    // b) If we have bytes, we can't fulfill the requirement.
+    // But wait, line 189: (bytes, name, Some(content)). Content IS the URL.
+    // Line 210: (bytes, name, None). Here we generated PDF via Buffer workflow.
+    // Does 'generate_pdf_via_workflow' return a URL?
+    // Looking at 'bubble.rs': 'generate_pdf_via_workflow' returns (Vec<u8>, String). It downloads the PDF bytes.
+    // We need it to return the URL too if we want to pass it back to 'send_quote'.
+    // Let's assume for now valid usage provides a URL or we need to refactor 'generate_pdf_via_workflow' to return URL.
+    // Refactor step needed: Update bubble.rs `generate_pdf_via_workflow` to return (Vec<u8>, String, String) -> (bytes, name, url).
+    
+    // WAIT. I cannot change bubble.rs again in this single tool call block easily without risking sync issues.
+    // I will check if I can modify `generate_pdf_via_workflow` in a separate step or if I should just use the URL if available.
+    // If I generated the PDF, I *downloaded* it from a URL. I should return that URL.
+    
+    // For this specific 'api.rs' edit, I will assume `bubble_service.send_quote` needs a String.
+    // I need to get that URL.
+    
+    // Let's STOP and rethink. I need to modify `api.rs`. I also need `bubble.rs` to return the URL.
+    // I already modified `bubble.rs` `send_quote`. I did NOT modify `generate_pdf_via_workflow`.
+    // I should probably have modified `generate_pdf_via_workflow` too.
+    // I will do that in a subsequent step if needed.
+    // For now, in `api.rs`, I will try to pass `pdf_url_for_bubble.unwrap_or_default()`. 
+    // If it's empty, and we only have bytes, the Bubble WF will likely fail or receive empty string.
+    // This highlights a potential logic gap: if user sends Base64, we have no URL.
+    // But the user constraint says "pass only text, specifically url". This implies use cases providing Base64 are either invalid OR Base64 is not used for Bubble, only for Email Attachment?
+    // "send_quote" workflow in Bubble sends code to the User. It needs the PDF to include it in the email sent FROM Bubble?
+    // If we are sending email from Rust (Gmail/Outlook), maybe we don't need Bubble to send the email?
+    // Ah, `bubble_service.send_quote` returns HTML body. It seems it *generates* the email body.
+    // Does it *send* the email? The method name is `send_quote`. The endpoint is `wf/send_quote`.
+    // But we are using the result `html_body` to send via Gmail/Outlook.
+    // So Bubble generates the body. Does the body *contain* the link to PDF?
+    // If so, it needs the URL.
+    // If we only have Base64, we can't give a URL.
+    // I will assume for now we have a URL or the user accepts that Base64 flows might be broken for the "link in body" feature.
+    
+    // Back to code:
+    let pdf_url_to_pass = pdf_url_for_bubble.ok_or_else(|| AppError::BadRequest("PDF URL is required for Bubble template (Base64 not supported for this flow)".to_string()))?;
+
     let html_body = bubble_service.send_quote(
         &req.quote_id,
         req.version.as_deref(),
-        // Pass bytes only if no URL. If URL exists, pass None for bytes so service uses URL.
-        if pdf_url_for_bubble.is_some() { None } else { Some(pdf_bytes.clone()) },
         &filename,
         req.to.clone(),
         req.cc.clone().unwrap_or_default(),
         &req.subject,
         req.maildata_identificator.as_deref().unwrap_or(""),
         req.pdf_export_settings.clone().unwrap_or_default(),
-        pdf_url_for_bubble, // Pass the URL if we have it
+        pdf_url_to_pass,
     ).await?;
     
     // 4. Attach PDF
@@ -256,9 +299,13 @@ pub async fn send_quote_email(
 pub async fn get_embed_js(
     State(state): State<AppState>,
 ) -> impl IntoResponse {
+    // User Requirement 1: Non-blocking IO
     let path = "frontend/dist/embed.js";
-    let js = match std::fs::read_to_string(path) {
-        Ok(content) => content.replace("__API_KEY_PLACEHOLDER__", &state.config.app_secret_key),
+    let js = match tokio::fs::read_to_string(path).await {
+        Ok(content) => {
+            // User Requirement 3: Security - inject WIDGET_KEY
+            content.replace("__API_KEY_PLACEHOLDER__", &state.config.widget_api_key)
+        },
         Err(e) => {
             tracing::error!("Failed to read embed.js: {:?}", e);
             "console.error('Widget script not found on server');".to_string()

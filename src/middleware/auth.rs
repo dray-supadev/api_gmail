@@ -25,7 +25,8 @@ pub async fn verify_api_key(
         Some(key) => {
             let matches_app_key = key == state.config.app_secret_key;
             let matches_bubble_key = !state.config.bubble_api_token.is_empty() && key == state.config.bubble_api_token;
-            matches_app_key || matches_bubble_key
+            let matches_widget_key = !state.config.widget_api_key.is_empty() && key == state.config.widget_api_key;
+            matches_app_key || matches_bubble_key || matches_widget_key
         },
         None => false,
     };

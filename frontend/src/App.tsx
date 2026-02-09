@@ -281,7 +281,6 @@ function App() {
                 - If no message selected: Show "Select conversation".
                 - If message selected: Show QuotePreview (Composer) pre-filled.
              2. If no quoteId: Standard "Reading Mode".
-                - Show ThreadView.
           */}
 
         {quoteId && activeToken ? (
@@ -328,13 +327,13 @@ function App() {
               <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
-              <p className="font-medium text-lg">Waiting for configuration...</p>
-              <p className="text-sm max-w-xs text-center">Please ensure the widget is opened from a valid Quote page in Bubble.</p>
             </div>
-        )}
+            <p className="font-medium text-lg">Waiting for configuration...</p>
+            <p className="text-sm max-w-xs text-center">Please ensure the widget is opened from a valid Quote page in Bubble.</p>
           </div>
+        )}
 
-      {/* Global Close Button (Always visible) */}
+        {/* Global Close Button (Always visible) */}
         <button
           onClick={handleClose}
           className="fixed top-5 right-5 p-2 rounded-full bg-white hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all z-[99999] shadow-lg border border-slate-200"
@@ -343,7 +342,8 @@ function App() {
           <X className="w-6 h-6" />
         </button>
       </div>
-      )
+    </div>
+  )
 }
 
-      export default App
+export default App

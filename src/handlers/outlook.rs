@@ -260,20 +260,32 @@ impl EmailProvider for OutlookProvider {
             // Execute all move requests in parallel
             let results = futures::future::join_all(tasks).await;
 
-            // Check for errors
+            // Check for errors and log them, but don't fail the whole batch
+            // This implements "Best Effort" strategy
+            let mut errors_count = 0;
             for res in results {
                 match res {
                     Ok(Ok(response)) => {
                         if !response.status().is_success() {
                             let status = response.status();
                             let text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-                            tracing::error!("Outlook API message move error: {} - {}", status, text);
-                            return Err(AppError::BadGateway(format!("Outlook API Error {}: {}", status, text)));
+                            tracing::error!("Outlook API message move partial failure: {} - {}", status, text);
+                            errors_count += 1;
                         }
                     },
-                    Ok(Err(e)) => return Err(AppError::OutlookApi(e)), // Reqwest error
-                    Err(e) => return Err(AppError::Internal(anyhow::anyhow!("Task join error: {}", e))), // Join error
+                    Ok(Err(e)) => {
+                        tracing::error!("Outlook API message move reqwest error: {}", e);
+                        errors_count += 1;
+                    }, 
+                    Err(e) => {
+                         tracing::error!("Task join error in batch move: {}", e);
+                         errors_count += 1;
+                    }, 
                 }
+            }
+            
+            if errors_count > 0 {
+                tracing::warn!("Batch move completed with {} errors", errors_count);
             }
         }
 
