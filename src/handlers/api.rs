@@ -160,12 +160,42 @@ pub async fn send_quote_email(
     
     // 1. Setup Services
     let bubble_service = BubbleService::new(state.client.clone())?;
-    // 2. Fetch/Generate PDF (either from provided base64 or via Bubble Workflow)
-    let (pdf_bytes, filename) = if let (Some(base64_content), Some(name)) = (req.pdf_base64, req.pdf_name) {
-        use base64::{Engine as _, engine::general_purpose::STANDARD};
-        let bytes = STANDARD.decode(base64_content.trim_start_matches("data:application/pdf;base64,"))
-            .map_err(|e| AppError::BadRequest(format!("Invalid PDF base64: {}", e)))?;
-        (bytes, name)
+    // 2. Fetch/Generate PDF (either from provided base64/URL or via Bubble Workflow)
+    let (pdf_bytes, filename) = if let (Some(content), Some(name)) = (req.pdf_base64, req.pdf_name) {
+        // Check if it's a URL
+        if content.starts_with("http") || content.starts_with("//") {
+            let url = if content.starts_with("//") {
+                format!("https:{}", content)
+            } else {
+                content
+            };
+            
+            let res = state.client.get(&url).send().await
+                .map_err(|e| AppError::BadGateway(format!("Failed to download PDF from URL: {}", e)))?;
+                
+            if !res.status().is_success() {
+                return Err(AppError::BadGateway(format!("Failed to download PDF from URL. Status: {}", res.status())));
+            }
+            
+            let bytes = res.bytes().await
+                .map_err(|e| AppError::BadGateway(format!("Failed to read PDF bytes: {}", e)))?
+                .to_vec();
+                
+            (bytes, name)
+        } else {
+            // Assume Base64
+            use base64::{Engine as _, engine::general_purpose::STANDARD};
+            // Clean up potentially messy base64 strings (data URI prefix)
+            let clean_base64 = if let Some(idx) = content.find(',') {
+                &content[idx+1..]
+            } else {
+                &content
+            };
+            
+            let bytes = STANDARD.decode(clean_base64.trim())
+                .map_err(|e| AppError::BadRequest(format!("Invalid PDF base64: {}", e)))?;
+            (bytes, name)
+        }
     } else {
         bubble_service.generate_pdf_via_workflow(
             &req.quote_id, 
