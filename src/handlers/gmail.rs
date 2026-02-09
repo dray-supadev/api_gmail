@@ -484,7 +484,10 @@ impl EmailProvider for GmailProvider {
             .await?;
 
         if !res.status().is_success() {
-            return Err(AppError::GmailApi(res.error_for_status().unwrap_err()));
+            let status = res.status();
+            let text = res.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            tracing::error!("Gmail API batch_modify error: {} - {}", status, text);
+            return Err(AppError::BadGateway(format!("Gmail API Error {}: {}", status, text)));
         }
 
         Ok(())

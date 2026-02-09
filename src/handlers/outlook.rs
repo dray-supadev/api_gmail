@@ -265,7 +265,10 @@ impl EmailProvider for OutlookProvider {
                 match res {
                     Ok(Ok(response)) => {
                         if !response.status().is_success() {
-                            return Err(AppError::OutlookApi(response.error_for_status().unwrap_err()));
+                            let status = response.status();
+                            let text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                            tracing::error!("Outlook API message move error: {} - {}", status, text);
+                            return Err(AppError::BadGateway(format!("Outlook API Error {}: {}", status, text)));
                         }
                     },
                     Ok(Err(e)) => return Err(AppError::OutlookApi(e)), // Reqwest error
