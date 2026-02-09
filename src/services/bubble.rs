@@ -149,11 +149,15 @@ impl BubbleService {
         let cc_json = serde_json::to_string(&cc).unwrap_or_else(|_| "[]".to_string());
         // Fix Point 2: PDFExportSettings - JSON array of strings
         let settings_json = serde_json::to_string(&pdf_export_settings).unwrap_or_else(|_| "[]".to_string());
+        
+        // Fix Point 3: Filename should not contain path separators for multipart form
+        // Some systems will reject or misinterpret "folder/file.pdf"
+        let safe_filename = pdf_name.split('/').last().unwrap_or("file.pdf");
 
         // Create the multipart form
         // Using mimetype application/pdf
         let part = multipart::Part::bytes(pdf_bytes)
-            .file_name(pdf_name.to_string())
+            .file_name(safe_filename.to_string())
             .mime_str("application/pdf")
             .map_err(|e| AppError::BadRequest(format!("Mime error: {}", e)))?;
 
