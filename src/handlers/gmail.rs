@@ -280,46 +280,38 @@ impl EmailProvider for GmailProvider {
             }));
         }
 
-        // Fetch metadata for each message in parallel
-        let mut tasks = Vec::new();
+        // Fetch metadata for each message with limited concurrency to avoid 429 errors
+        use futures::stream::{self, StreamExt};
         
-        for msg in messages_raw {
-            let id = msg["id"].as_str().unwrap_or("").to_string();
-            let thread_id = msg["threadId"].as_str().unwrap_or("").to_string();
-            let client_clone = client.clone();
-            let token_clone = token.to_string();
-            // Need to clone self to move into async block, but self is reference.
-            // Actually, we can just use the helper method logic or make helper static/function.
-            // Making helper a method on &self makes it hard to spawn.
-            // For now, let's clone the provider if it was cheap (it is ZST).
-            // Better: just move the logic into an async block or Arc<Self>.
-            // Since GmailProvider is ZST (Zero Sized Type), we can just construct it inside or make methods standalone.
-            // Let's make `fetch_message_metadata` a standalone function or associate it with the implementation.
-            tasks.push(tokio::spawn(async move {
-                // HACK: Re-instantiating provider here or just copying logic?
-                // The helper function uses `has_attachments_in_payload` which is standalone.
-                // Let's just make the helper function NOT a method of self, or just static.
-                // For this refactor, I'll assume `fetch_message_metadata` is moved out of impl or we Clone.
-                // Since `GmailProvider` is ZST, we can create a new one.
-                let provider = GmailProvider::new(client_clone.clone());
-                provider.fetch_message_metadata(&client_clone, &token_clone, &id, &thread_id).await
-            }));
-        }
+        // Concurrency limit for Gmail API requests
+        const CONCURRENCY_LIMIT: usize = 5;
 
-        // Wait for all tasks to complete
-        let results = futures::future::join_all(tasks).await;
+        let results = stream::iter(messages_raw)
+            .map(|msg| {
+                let id = msg["id"].as_str().unwrap_or("").to_string();
+                let thread_id = msg["threadId"].as_str().unwrap_or("").to_string();
+                let client = client.clone();
+                let token = token.to_string();
+                let provider = GmailProvider::new(client.clone());
+
+                async move {
+                    provider.fetch_message_metadata(&client, &token, &id, &thread_id).await
+                }
+            })
+            .buffer_unordered(CONCURRENCY_LIMIT)
+            .collect::<Vec<_>>()
+            .await;
+        
+        // Since we are not using JoinHandles anymore but direct futures, we don't need to unwrap blocking join errors
+        // The results are Vec<Result<MessageSummary, AppError>> directly.
         
         let enriched_messages: Vec<MessageSummary> = results
             .into_iter()
             .filter_map(|r| {
                 match r {
-                    Ok(Ok(m)) => Some(m),
-                    Ok(Err(e)) => {
-                        tracing::error!("Failed to fetch message metadata: {:?}", e);
-                        None
-                    }
+                    Ok(m) => Some(m),
                     Err(e) => {
-                        tracing::error!("Join error in list_messages: {:?}", e);
+                        tracing::error!("Failed to fetch message metadata: {:?}", e);
                         None
                     }
                 }
