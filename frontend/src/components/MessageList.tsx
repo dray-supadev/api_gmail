@@ -126,7 +126,7 @@ function MessageItem({ message, isSelected, onSelect, labels, onMove }: MessageI
                     {showMoveMenu && (
                         <div className="absolute right-0 mt-1 w-48 bg-popover text-popover-foreground border rounded-md shadow-lg z-50 py-1 max-h-60 overflow-y-auto">
                             <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Move to...</div>
-                            {labels.filter(l => l.label_type !== 'system' || l.id === 'INBOX' || l.id === 'TRASH' || l.id === 'SPAM').map((label) => (
+                            {labels.map((label) => (
                                 <button
                                     key={label.id}
                                     onClick={(e) => handleMoveClick(e, label.id)}
