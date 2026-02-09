@@ -1,4 +1,4 @@
-use reqwest::Client;
+use reqwest::{Client, multipart};
 use serde_json::Value;
 use crate::error::AppError;
 use std::env;
@@ -127,5 +127,63 @@ impl BubbleService {
         let email_body = response["body"].as_str().map(|s| s.to_string());
 
         Ok((html, email_body))
+    }
+
+    pub async fn send_quote(
+        &self,
+        version: Option<&str>,
+        quote_id: &str,
+        pdf_bytes: Vec<u8>,
+        pdf_name: &str,
+        recipients: Vec<String>,
+        cc: Vec<String>,
+        subject: &str,
+        maildata_identificator: &str,
+    ) -> Result<String, AppError> {
+        let version_path = version.unwrap_or("version-test");
+        let url = format!("{}/{}/api/1.1/wf/send_quote", self.base_url, version_path);
+
+        // Convert lists to JSON strings as Bubble likely expects them this way in multipart form
+        let recipients_json = serde_json::to_string(&recipients).unwrap_or_else(|_| "[]".to_string());
+        let cc_json = serde_json::to_string(&cc).unwrap_or_else(|_| "[]".to_string());
+
+        // Create the multipart form
+        // Using mimetype application/pdf
+        let part = multipart::Part::bytes(pdf_bytes)
+            .file_name(pdf_name.to_string())
+            .mime_str("application/pdf")
+            .map_err(|e| AppError::BadRequest(format!("Mime error: {}", e)))?;
+
+        let form = multipart::Form::new()
+            .text("quote", quote_id.to_string())
+            .part("pdf", part)
+            .text("recipients", recipients_json)
+            .text("cc", cc_json)
+            .text("pdfname", pdf_name.to_string())
+            .text("subject", subject.to_string())
+            .text("maildata_Identificator", maildata_identificator.to_string());
+
+        let res = self.client.post(&url)
+            .bearer_auth(&self.api_token)
+            .multipart(form)
+            .send()
+            .await?;
+
+        if !res.status().is_success() {
+             let status = res.status();
+             let error_text = res.text().await.unwrap_or_default();
+             tracing::error!("Bubble Send Quote WF Error ({}): {}", status, error_text);
+             return Err(AppError::BadGateway(format!("Bubble Send Quote WF failed: {}", error_text)));
+        }
+
+        let body: Value = res.json().await?;
+        
+        // Extract HTML from response
+        // Expected response format: { "response": { "html": "..." } }
+        let html_content = body["response"]["html"].as_str()
+            .ok_or_else(|| AppError::BadGateway("Bubble did not return html content in response".to_string()))?
+            .to_string();
+
+        Ok(html_content)
     }
 }

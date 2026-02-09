@@ -13,6 +13,8 @@ interface QuotePreviewProps {
     provider: string
     onClose: () => void
     pdfExportSettings?: string[]
+    pdfBase64?: string
+    pdfName?: string
     className?: string
 }
 
@@ -26,10 +28,13 @@ export function QuotePreview({
     provider,
     onClose,
     pdfExportSettings = [],
+    pdfBase64,
+    pdfName,
     className
 }: QuotePreviewProps) {
     const [comment, setComment] = useState("")
     const [to, setTo] = useState(initialTo.join(", "))
+    const [cc, setCc] = useState("")
     const [subject, setSubject] = useState(initialSubject)
     const [sending, setSending] = useState(false)
     const [loadingPreview, setLoadingPreview] = useState(false)
@@ -44,15 +49,13 @@ export function QuotePreview({
         const fetchPreview = async () => {
             setLoadingPreview(true)
             try {
-                // Pass empty comment or dummy placeholder to get the template
                 const res = await api.previewQuote({
                     quote_id: quoteId,
                     version,
-                    comment: "", // We don't send comment to backend anymore for preview generation
+                    comment: "",
                     pdf_export_settings: pdfExportSettings
                 })
                 setTemplateHtml(res.html)
-                // If backend provides a default body (email template), use it if user input is empty
                 if (res.body && !comment) {
                     setComment(res.body)
                 }
@@ -68,52 +71,30 @@ export function QuotePreview({
             }
         }
 
-        // Debounce only on settings change if needed, but for now simple fetch
         fetchPreview()
-    }, [quoteId, version, pdfExportSettings]) // Trigger when these change. Removed 'comment'. 
-    // Wait, if we use Bubble for preview HTML which depends on comment (comment box in PDF), we DO need to send comment.
-    // If you want realtime preview update as user types comment:
-    // Keep 'comment' in dep array.
-    // BUT: The logic `if (res.body && !comment) setComment(res.body)` might fight with user typing if not careful.
-    // Better: Only setComment from response if it is INITIAL load.
-    // But since useEffect runs on 'comment' change, it will re-fetch.
-    // If the Bubble workflow returns the SAME body passed in, it's fine.
-    // If Bubble workflow generates a DEFAULT body, we only want that on first load.
-    // Let's refactor slightly to separate "Fetch Initial Body" vs "Update Preview HTML".
-    // For now, I will keep it simple. If user types, we send comment to Bubble, Bubble returns HTML with comment. Bubble returns body? 
-    // Actually, usually Body is just for the email text. HTML is for PDF. 
-    // The PDF usually contains the comment too.
-    // So we should send 'comment' to Bubble.
-    // Bubble response 'body' is the EMAIL body template. It shouldn't change just because I typed a comment in the PDF, unless the email body also includes the comment.
-    // Safest is to only setComment from response if current comment is empty.
-
-    // UPDATED DEPENDENCIES:
-    // [quoteId, version, comment, pdfExportSettings]
-    // And logic to setComment only if !comment.
-    // Actually, if I type a char, 'comment' changes -> fetchPreview -> returns 'body' -> setComment -> loop?
-    // If returns same body, no change.
-    // If I typed "H", and Bubble returns "Default Body", then "H" != "Default Body" and !"H".length is false.
-    // So `if (!comment)` protects us from overwriting user input.
-    // But what if `comment` is required for the Preview HTML?
-
-    // Let's assume user wants to see their comment in the PDF preview.
-    // But fetchPreview is debounced.
-    // So it's fine.
-
+    }, [quoteId, version, pdfExportSettings])
 
     const handleSend = async () => {
         setSending(true)
         try {
+            // Generate maildata_Identificator: "DI" + 4 random alphanumeric chars
+            const randomChars = Math.random().toString(36).substring(2, 6).toUpperCase();
+            const maildata_identificator = `DI${randomChars}`;
+
             await api.sendQuote(token, {
                 quote_id: quoteId,
                 version,
                 provider,
                 to: to.split(",").map(s => s.trim()).filter(Boolean),
+                cc: cc.split(",").map(s => s.trim()).filter(Boolean),
                 subject,
                 thread_id: threadId,
                 comment,
                 pdf_export_settings: pdfExportSettings,
-                html_body: previewHtml
+                html_body: previewHtml,
+                pdf_base64: pdfBase64,
+                pdf_name: pdfName,
+                maildata_identificator: maildata_identificator
             })
             onClose()
         } catch (e) {
@@ -145,7 +126,16 @@ export function QuotePreview({
                             placeholder="recipient@example.com"
                         />
                     </div>
-                    {/* Placeholder for CC if needed later */}
+
+                    <div className="grid grid-cols-[60px_1fr] items-center gap-2">
+                        <label className="text-sm font-medium text-muted-foreground text-right">CC</label>
+                        <input
+                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            value={cc}
+                            onChange={e => setCc(e.target.value)}
+                            placeholder="cc@example.com"
+                        />
+                    </div>
 
                     <div className="grid grid-cols-[60px_1fr] items-center gap-2">
                         <label className="text-sm font-medium text-muted-foreground text-right">Subject</label>

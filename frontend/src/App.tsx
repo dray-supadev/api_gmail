@@ -17,6 +17,10 @@ function App() {
   const [bubbleVersion, setBubbleVersion] = useState<string | undefined>(undefined)
   const [pdfExportSettings, setPdfExportSettings] = useState<string[]>([])
 
+  // Data passed from Bubble to avoid API calls (for PDF)
+  const [pdfBase64, setPdfBase64] = useState<string | null>(null)
+  const [pdfName, setPdfName] = useState<string | null>(null)
+
   // ... inside useEffect
 
 
@@ -65,8 +69,40 @@ function App() {
       setPdfExportSettings(settingsParam.split(",").filter(Boolean));
     }
 
+    setPdfBase64(params.get("pdfBase64"));
+    setPdfName(params.get("pdfName"));
+
     setIsConfigLoaded(true);
   }, [])
+
+  // Listen for config messages (for large data)
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'GMAIL_WIDGET_CONFIG') {
+        const config = event.data.config;
+        console.log("Received config via postMessage:", { ...config, gmailToken: '***', outlookToken: '***' });
+
+        if (config.apiKey) api.setApiKey(config.apiKey);
+        if (config.gmailToken || config.outlookToken) {
+          setTokens(prev => ({ ...prev, gmail: config.gmailToken, outlook: config.outlookToken }));
+        }
+        if (config.token) setLegacyToken(config.token);
+        if (config.provider) setProvider(config.provider);
+        if (config.quoteId) setQuoteId(config.quoteId);
+        if (config.bubbleVersion) setBubbleVersion(config.bubbleVersion);
+        if (config.pdfExportSettings) {
+          setPdfExportSettings(Array.isArray(config.pdfExportSettings) ? config.pdfExportSettings : config.pdfExportSettings.split(",").filter(Boolean));
+        }
+
+        // Large data fields
+        if (config.pdfBase64) setPdfBase64(config.pdfBase64);
+        if (config.pdfName) setPdfName(config.pdfName);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
   // Reset label and search when provider changes
   useEffect(() => {
@@ -199,6 +235,8 @@ function App() {
                 window.parent.postMessage({ type: 'GMAIL_WIDGET_CLOSE' }, '*')
               }}
               pdfExportSettings={pdfExportSettings}
+              pdfBase64={pdfBase64 || undefined}
+              pdfName={pdfName || undefined}
               className="w-full h-full border-none shadow-none"
             />
           ) : (

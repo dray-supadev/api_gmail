@@ -33,11 +33,15 @@ export interface SendQuoteRequest {
     version?: string;
     provider: string;
     to: string[];
+    cc?: string[];
     subject: string;
     thread_id?: string;
     comment?: string;
     pdf_export_settings?: string[];
     html_body?: string;
+    pdf_base64?: string;
+    pdf_name?: string;
+    maildata_identificator?: string;
 }
 
 const API_BASE = import.meta.env.PROD ? "" : "http://localhost:3000";

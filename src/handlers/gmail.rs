@@ -380,6 +380,11 @@ impl EmailProvider for GmailProvider {
 
         let mut email_content = String::new();
         email_content.push_str(&format!("To: {}\r\n", to_header));
+        if let Some(cc) = &req.cc {
+            if !cc.is_empty() {
+                email_content.push_str(&format!("Cc: {}\r\n", cc.join(", ")));
+            }
+        }
         email_content.push_str(&format!("Subject: {}\r\n", req.subject));
         
         let _has_attachments = req.attachments.as_ref().map_or(false, |atts| !atts.is_empty());

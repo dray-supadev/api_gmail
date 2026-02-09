@@ -121,8 +121,6 @@ pub async fn preview_quote(
     Json(params): Json<QuotePreviewParams>,
 ) -> Result<impl IntoResponse, AppError> {
     let bubble_service = BubbleService::new(state.client.clone())?;
-    // Old logic: fetch raw data + local HTML generation
-    // New logic: fetch HTML + Body from Bubble Workflow
     
     let (html, body) = bubble_service.fetch_quote_preview(
         &params.quote_id, 
@@ -142,11 +140,15 @@ pub struct SendQuoteRequest {
     pub version: Option<String>,
     pub provider: String, // "gmail" or "outlook"
     pub to: Vec<String>,
+    pub cc: Option<Vec<String>>,
     pub subject: String,
     pub thread_id: Option<String>,
     pub comment: Option<String>,
     pub pdf_export_settings: Option<Vec<String>>,
     pub html_body: Option<String>,
+    pub pdf_base64: Option<String>,
+    pub pdf_name: Option<String>,
+    pub maildata_identificator: Option<String>,
 }
 
 pub async fn send_quote_email(
@@ -158,26 +160,35 @@ pub async fn send_quote_email(
     
     // 1. Setup Services
     let bubble_service = BubbleService::new(state.client.clone())?;
-    // 2. Fetch/Generate PDF via Bubble Workflow
-    let (pdf_bytes, filename) = bubble_service.generate_pdf_via_workflow(
-        &req.quote_id, 
-        req.version.as_deref(), 
-        req.pdf_export_settings.clone()
-    ).await?;
-    
-    // 3. Determine HTML Body
-    // If frontend passed the preview HTML, use it. Otherwise fall back to simple message.
-    let html_body = if let Some(body) = req.html_body {
-        body
-    } else if let Some(comment) = &req.comment {
-        // Fix Point 1: XSS protection
-        let escaped_comment = encode_safe(comment).replace("\n", "<br>");
-        format!("<p>{}</p>", escaped_comment)
+    // 2. Fetch/Generate PDF (either from provided base64 or via Bubble Workflow)
+    let (pdf_bytes, filename) = if let (Some(base64_content), Some(name)) = (req.pdf_base64, req.pdf_name) {
+        use base64::{Engine as _, engine::general_purpose::STANDARD};
+        let bytes = STANDARD.decode(base64_content.trim_start_matches("data:application/pdf;base64,"))
+            .map_err(|e| AppError::BadRequest(format!("Invalid PDF base64: {}", e)))?;
+        (bytes, name)
     } else {
-        "<p>Please find the attached quote proposal.</p>".to_string()
+        bubble_service.generate_pdf_via_workflow(
+            &req.quote_id, 
+            req.version.as_deref(), 
+            req.pdf_export_settings.clone()
+        ).await?
     };
     
-    // 4. Attach PDF (Fix Point 9)
+    // 3. Get HTML Body from Bubble via send_quote workflow
+    // The user requested: calls send_quote with quote, pdf, recipients, cc, pdfname, subject, maildata_Identificator
+    // And gets HTML back.
+    let html_body = bubble_service.send_quote(
+        req.version.as_deref(),
+        &req.quote_id,
+        pdf_bytes.clone(),
+        &filename,
+        req.to.clone(),
+        req.cc.clone().unwrap_or_default(),
+        &req.subject,
+        req.maildata_identificator.as_deref().unwrap_or(""),
+    ).await?;
+    
+    // 4. Attach PDF
     let attachments = Some(vec![super::provider::Attachment {
         filename,
         content: pdf_bytes,
@@ -193,6 +204,7 @@ pub async fn send_quote_email(
     
     let send_req = SendMessageRequest {
         to: req.to,
+        cc: req.cc,
         subject: req.subject,
         body: html_body, 
         thread_id: req.thread_id,

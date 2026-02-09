@@ -46,6 +46,7 @@ pub struct Attachment {
 #[derive(Deserialize, Debug)]
 pub struct SendMessageRequest {
     pub to: Vec<String>,
+    pub cc: Option<Vec<String>>,
     pub subject: String,
     pub body: String,
     pub thread_id: Option<String>,

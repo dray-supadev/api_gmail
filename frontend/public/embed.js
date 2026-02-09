@@ -103,6 +103,14 @@
             iframe.style.height = "100%";
             iframe.style.border = "none";
 
+            // Pass the full config via postMessage once loaded (to handle large data)
+            iframe.onload = function () {
+                iframe.contentWindow.postMessage({
+                    type: 'GMAIL_WIDGET_CONFIG',
+                    config: config
+                }, "*");
+            };
+
             container.appendChild(iframe);
 
             // Store appOrigin for origin check

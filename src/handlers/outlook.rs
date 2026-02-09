@@ -150,6 +150,14 @@ impl EmailProvider for OutlookProvider {
              })
          }).collect();
 
+         let cc_recipients: Vec<serde_json::Value> = req.cc.unwrap_or_default().iter().map(|email| {
+             json!({
+                 "emailAddress": {
+                     "address": email
+                 }
+             })
+         }).collect();
+
          let mut attachments_json = vec![];
          if let Some(attachments) = req.attachments {
              use base64::{Engine as _, engine::general_purpose};
@@ -171,6 +179,7 @@ impl EmailProvider for OutlookProvider {
                      "content": req.body
                  },
                  "toRecipients": recipients,
+                 "ccRecipients": cc_recipients,
                  "attachments": attachments_json
              },
              "saveToSentItems": "true"
