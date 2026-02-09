@@ -216,6 +216,7 @@ pub async fn send_quote_email(
         req.cc.clone().unwrap_or_default(),
         &req.subject,
         req.maildata_identificator.as_deref().unwrap_or(""),
+        req.pdf_export_settings.clone().unwrap_or_default(),
     ).await?;
     
     // 4. Attach PDF

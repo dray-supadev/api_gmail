@@ -139,6 +139,7 @@ impl BubbleService {
         cc: Vec<String>,
         subject: &str,
         maildata_identificator: &str,
+        pdf_export_settings: Vec<String>,
     ) -> Result<String, AppError> {
         let version_path = version.unwrap_or("version-test");
         let url = format!("{}/{}/api/1.1/wf/send_quote", self.base_url, version_path);
@@ -146,6 +147,8 @@ impl BubbleService {
         // Convert lists to JSON strings as Bubble likely expects them this way in multipart form
         let recipients_json = serde_json::to_string(&recipients).unwrap_or_else(|_| "[]".to_string());
         let cc_json = serde_json::to_string(&cc).unwrap_or_else(|_| "[]".to_string());
+        // Fix Point 2: PDFExportSettings - JSON array of strings
+        let settings_json = serde_json::to_string(&pdf_export_settings).unwrap_or_else(|_| "[]".to_string());
 
         // Create the multipart form
         // Using mimetype application/pdf
@@ -161,7 +164,8 @@ impl BubbleService {
             .text("cc", cc_json)
             .text("pdfname", pdf_name.to_string())
             .text("subject", subject.to_string())
-            .text("maildata_Identificator", maildata_identificator.to_string());
+            .text("maildata_Identificator", maildata_identificator.to_string())
+            .text("PDFExportSettings", settings_json);
 
         let res = self.client.post(&url)
             .bearer_auth(&self.api_token)
