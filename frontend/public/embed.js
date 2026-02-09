@@ -85,7 +85,8 @@
             const INJECTED_API_KEY = "__API_KEY_PLACEHOLDER__";
             const apiKey = config.apiKey || INJECTED_API_KEY;
 
-            if (apiKey && apiKey !== "__API_KEY_PLACEHOLDER__") {
+            // Pass the key if it exists and was successfully injected
+            if (apiKey && apiKey.length > 10) {
                 url.searchParams.set("apiKey", apiKey);
             }
 
