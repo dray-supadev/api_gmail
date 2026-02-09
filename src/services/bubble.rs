@@ -131,15 +131,16 @@ impl BubbleService {
 
     pub async fn send_quote(
         &self,
-        version: Option<&str>,
         quote_id: &str,
-        pdf_bytes: Vec<u8>,
+        version: Option<&str>,
+        pdf_bytes: Option<Vec<u8>>,
         pdf_name: &str,
         recipients: Vec<String>,
         cc: Vec<String>,
         subject: &str,
         maildata_identificator: &str,
         pdf_export_settings: Vec<String>,
+        pdf_url: Option<String>,
     ) -> Result<String, AppError> {
         let version_path = version.unwrap_or("version-test");
         let url = format!("{}/{}/api/1.1/wf/send_quote", self.base_url, version_path);
@@ -150,19 +151,7 @@ impl BubbleService {
         // Fix Point 2: PDFExportSettings - JSON array of strings
         let settings_json = serde_json::to_string(&pdf_export_settings).unwrap_or_else(|_| "[]".to_string());
         
-        // Fix Point 3: Filename should not contain path separators for multipart form
-        // Some systems will reject or misinterpret "folder/file.pdf"
-        let safe_filename = pdf_name.split('/').last().unwrap_or("file.pdf");
-
-        // Create the multipart form
-        // Using mimetype application/pdf
-        let part = multipart::Part::bytes(pdf_bytes)
-            .file_name(safe_filename.to_string())
-            .mime_str("application/pdf")
-            .map_err(|e| AppError::BadRequest(format!("Mime error: {}", e)))?;
-
-        let form = multipart::Form::new()
-            .part("pdf", part) // Put file first, sometimes helps
+        let mut form = multipart::Form::new()
             .text("quote", quote_id.to_string())
             .text("recipients", recipients_json)
             .text("cc", cc_json)
@@ -170,6 +159,30 @@ impl BubbleService {
             .text("subject", subject.to_string())
             .text("maildata_Identificator", maildata_identificator.to_string())
             .text("PDFExportSettings", settings_json);
+
+        if let Some(url_str) = pdf_url {
+            let final_url = if url_str.starts_with("//") {
+                format!("https:{}", url_str)
+            } else {
+                url_str
+            };
+            form = form.text("pdf", final_url);
+        } else if let Some(bytes) = pdf_bytes {
+            // Fix Point 3: Filename should not contain path separators for multipart form
+            // Some systems will reject or misinterpret "folder/file.pdf"
+            let safe_filename = pdf_name.split('/').last().unwrap_or("file.pdf");
+    
+            // Create the multipart form
+            // Using mimetype application/pdf
+            let part = multipart::Part::bytes(bytes)
+                .file_name(safe_filename.to_string())
+                .mime_str("application/pdf")
+                .map_err(|e| AppError::BadRequest(format!("Mime error: {}", e)))?;
+            
+            form = form.part("pdf", part);
+        } else {
+             return Err(AppError::BadRequest("Either pdf_url or pdf_bytes must be provided".to_string()));
+        }
 
         let res = self.client.post(&url)
             .bearer_auth(&self.api_token)

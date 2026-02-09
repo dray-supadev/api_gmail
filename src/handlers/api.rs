@@ -161,15 +161,18 @@ pub async fn send_quote_email(
     // 1. Setup Services
     let bubble_service = BubbleService::new(state.client.clone())?;
     // 2. Fetch/Generate PDF (either from provided base64/URL or via Bubble Workflow)
-    let (pdf_bytes, filename) = if let (Some(content), Some(name)) = (req.pdf_base64, req.pdf_name) {
+    // 2. Fetch/Generate PDF (either from provided base64/URL or via Bubble Workflow)
+    // We need both bytes (for email attachment) and potentially URL (for Bubble WF)
+    let (pdf_bytes, filename, pdf_url_for_bubble) = if let (Some(content), Some(name)) = (req.pdf_base64, req.pdf_name) {
         // Check if it's a URL
         if content.starts_with("http") || content.starts_with("//") {
             let url = if content.starts_with("//") {
                 format!("https:{}", content)
             } else {
-                content
+                content.clone()
             };
             
+            // Download bytes for email attachment
             let res = state.client.get(&url).send().await
                 .map_err(|e| AppError::BadGateway(format!("Failed to download PDF from URL: {}", e)))?;
                 
@@ -181,7 +184,9 @@ pub async fn send_quote_email(
                 .map_err(|e| AppError::BadGateway(format!("Failed to read PDF bytes: {}", e)))?
                 .to_vec();
                 
-            (bytes, name)
+            // Key change: We pass the ORIGINAL URL to Bubble but keep bytes for email attachment
+            // Bubble will take the URL in the 'pdf' field as text
+            (bytes, name, Some(content)) 
         } else {
             // Assume Base64
             use base64::{Engine as _, engine::general_purpose::STANDARD};
@@ -194,29 +199,30 @@ pub async fn send_quote_email(
             
             let bytes = STANDARD.decode(clean_base64.trim())
                 .map_err(|e| AppError::BadRequest(format!("Invalid PDF base64: {}", e)))?;
-            (bytes, name)
+            (bytes, name, None)
         }
     } else {
-        bubble_service.generate_pdf_via_workflow(
+        let (bytes, name) = bubble_service.generate_pdf_via_workflow(
             &req.quote_id, 
             req.version.as_deref(), 
             req.pdf_export_settings.clone()
-        ).await?
+        ).await?;
+        (bytes, name, None)
     };
     
     // 3. Get HTML Body from Bubble via send_quote workflow
-    // The user requested: calls send_quote with quote, pdf, recipients, cc, pdfname, subject, maildata_Identificator
-    // And gets HTML back.
     let html_body = bubble_service.send_quote(
-        req.version.as_deref(),
         &req.quote_id,
-        pdf_bytes.clone(),
+        req.version.as_deref(),
+        // Pass bytes only if no URL. If URL exists, pass None for bytes so service uses URL.
+        if pdf_url_for_bubble.is_some() { None } else { Some(pdf_bytes.clone()) },
         &filename,
         req.to.clone(),
         req.cc.clone().unwrap_or_default(),
         &req.subject,
         req.maildata_identificator.as_deref().unwrap_or(""),
         req.pdf_export_settings.clone().unwrap_or_default(),
+        pdf_url_for_bubble, // Pass the URL if we have it
     ).await?;
     
     // 4. Attach PDF
