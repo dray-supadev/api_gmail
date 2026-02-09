@@ -155,6 +155,16 @@ function App() {
     });
   }, []);
 
+  // Automatically select provider if only one token is available
+  useEffect(() => {
+    if (tokens.gmail && !tokens.outlook) {
+      setProvider("gmail");
+    } else if (!tokens.gmail && tokens.outlook) {
+      setProvider("outlook");
+    }
+    // If both are present, we respect the current selection or default
+  }, [tokens.gmail, tokens.outlook]);
+
   const handleClose = useCallback(() => {
     window.parent.postMessage({ type: 'GMAIL_WIDGET_CLOSE' }, '*');
   }, []);
@@ -194,6 +204,30 @@ function App() {
     }
   }, [activeToken, provider, selectedLabelId, selectedThreadId]);
 
+  if (isConfigLoaded && !tokens.gmail && !tokens.outlook && !legacyToken) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-background text-foreground">
+        <div className="text-center space-y-4 p-8 max-w-md">
+          <div className="mx-auto w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold">No Email Account Connected</h2>
+          <p className="text-muted-foreground">
+            Please connect either a Gmail or Outlook account in your settings to use this widget.
+          </p>
+          <button
+            onClick={handleClose}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition"
+          >
+            Close Widget
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="fixed inset-0 flex bg-background text-foreground overflow-hidden font-sans">
       <Sidebar
@@ -202,6 +236,8 @@ function App() {
         labels={labels}
         selectedLabelId={selectedLabelId}
         onLabelSelect={setSelectedLabelId}
+        gmailDisabled={!tokens.gmail && !legacyToken} // Simplified logic: if no token, disable
+        outlookDisabled={!tokens.outlook}
       />
 
       {/* Messages List - Always visible */}
@@ -286,32 +322,31 @@ function App() {
             </div>
           )
         ) : (
-          // NO QUOTE ID or NO TOKEN
+          // NO QUOTE ID or NO TOKEN (Should be caught by early return above, but safe fallback)
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground space-y-4">
             <div className="p-4 rounded-full bg-slate-100">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
+              <p className="font-medium text-lg">Waiting for configuration...</p>
+              <p className="text-sm max-w-xs text-center">Please ensure the widget is opened from a valid Quote page in Bubble.</p>
             </div>
-            <p className="font-medium text-lg">Waiting for configuration...</p>
-            <p className="text-sm max-w-xs text-center">Please ensure the widget is opened from a valid Quote page in Bubble.</p>
-          </div>
         )}
 
-      </div>
+          </div>
 
       {/* Global Close Button when no conversation is selected (Request 5) */}
-      {!selectedThreadId && (
-        <button
-          onClick={handleClose}
-          className="fixed top-5 right-5 p-2 rounded-full bg-white hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all z-[99999] shadow-lg border border-slate-200"
-          title="Закрыть"
-        >
-          <X className="w-6 h-6" />
-        </button>
-      )}
-    </div>
-  )
+        {!selectedThreadId && (
+          <button
+            onClick={handleClose}
+            className="fixed top-5 right-5 p-2 rounded-full bg-white hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all z-[99999] shadow-lg border border-slate-200"
+            title="Закрыть"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        )}
+      </div>
+      )
 }
 
-export default App
+      export default App

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Inbox, ChevronDown, Folder, Send, FileText, Trash2, Mail, Archive } from "lucide-react"
+import { Inbox, Folder, Send, FileText, Trash2, Mail, Archive } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Label } from "../api"
 
@@ -9,6 +9,8 @@ interface SidebarProps {
     labels: Label[]
     selectedLabelId: string
     onLabelSelect: (id: string) => void
+    gmailDisabled?: boolean
+    outlookDisabled?: boolean
 }
 
 export function Sidebar({
@@ -16,26 +18,43 @@ export function Sidebar({
     onProviderChange,
     labels,
     selectedLabelId,
-    onLabelSelect
+    onLabelSelect,
+    gmailDisabled,
+    outlookDisabled
 }: SidebarProps) {
     const [collapsed, _setCollapsed] = useState(false)
 
     return (
         <div className={cn("h-full bg-card border-r flex flex-col transition-all duration-300", collapsed ? "w-16" : "w-64")}>
             {/* Account Switcher */}
-            <div className="p-4 border-b">
-                <div className="flex items-center gap-2 cursor-pointer hover:bg-accent/50 p-2 rounded-lg" onClick={() => onProviderChange(currentProvider === "gmail" ? "outlook" : "gmail")}>
-                    <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-white font-bold", currentProvider === "gmail" ? "bg-red-500" : "bg-blue-600")}>
-                        {currentProvider === "gmail" ? "G" : "O"}
-                    </div>
-                    {!collapsed && (
-                        <div className="flex-1 overflow-hidden">
-                            <p className="text-sm font-medium truncate">{currentProvider === "gmail" ? "Gmail" : "Outlook"}</p>
-                            <p className="text-xs text-muted-foreground truncate">Switch Account</p>
-                        </div>
+            <div className="p-4 border-b space-y-2">
+                {!collapsed && <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Accounts</p>}
+
+                <button
+                    disabled={gmailDisabled}
+                    onClick={() => onProviderChange("gmail")}
+                    className={cn(
+                        "w-full flex items-center gap-2 p-2 rounded-lg transition-colors text-left",
+                        currentProvider === "gmail" ? "bg-accent text-accent-foreground" : "hover:bg-accent/50 text-muted-foreground",
+                        gmailDisabled && "opacity-50 cursor-not-allowed"
                     )}
-                    {!collapsed && <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-                </div>
+                >
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center bg-red-500 text-white font-bold text-xs">G</div>
+                    {!collapsed && <span className="text-sm font-medium">Gmail</span>}
+                </button>
+
+                <button
+                    disabled={outlookDisabled}
+                    onClick={() => onProviderChange("outlook")}
+                    className={cn(
+                        "w-full flex items-center gap-2 p-2 rounded-lg transition-colors text-left",
+                        currentProvider === "outlook" ? "bg-accent text-accent-foreground" : "hover:bg-accent/50 text-muted-foreground",
+                        outlookDisabled && "opacity-50 cursor-not-allowed"
+                    )}
+                >
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center bg-blue-600 text-white font-bold text-xs">O</div>
+                    {!collapsed && <span className="text-sm font-medium">Outlook</span>}
+                </button>
             </div>
 
             {/* Menu - Labels */}
