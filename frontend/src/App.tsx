@@ -161,6 +161,39 @@ function App() {
 
   const selectedMessage = messages.find(m => m.id === selectedThreadId || m.thread_id === selectedThreadId);
 
+  const handleMoveMessage = useCallback(async (messageId: string, newLabelId: string) => {
+    if (!activeToken) return;
+
+    try {
+      // Optimistic update: Remove message from list immediately
+      setMessages(prev => prev.filter(m => m.id !== messageId));
+      if (selectedThreadId === messageId) {
+        setSelectedThreadId(null);
+        setQuoteId(null); // Close composer if open
+      }
+
+      const req: any = {
+        ids: [messageId],
+        add_label_ids: [newLabelId]
+      };
+
+      if (provider === "gmail") {
+        // For Gmail, we typically remove the current label (e.g. INBOX) when moving
+        // If we are in "All Mail" or search, we might not want to remove anything, but assuming usage from a folder:
+        if (selectedLabelId && selectedLabelId !== "TRASH" && selectedLabelId !== "SPAM") {
+          req.remove_label_ids = [selectedLabelId];
+        }
+      }
+
+      await api.modifyLabels(activeToken, provider, req);
+
+    } catch (err) {
+      console.error("Failed to move message:", err);
+      // Revert optimistic update (simplified: just reload messages)
+      // trigger reload...
+    }
+  }, [activeToken, provider, selectedLabelId, selectedThreadId]);
+
   return (
     <div className="fixed inset-0 flex bg-background text-foreground overflow-hidden font-sans">
       <Sidebar
@@ -199,6 +232,8 @@ function App() {
           onSelect={setSelectedThreadId}
           onSearch={setSearchQuery}
           labelName={labels.find(l => l.id === selectedLabelId)?.name || "Inbox"}
+          labels={labels}
+          onMove={handleMoveMessage}
         />
       )}
 
