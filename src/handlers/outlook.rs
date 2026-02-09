@@ -232,25 +232,44 @@ impl EmailProvider for OutlookProvider {
         
         // Moving to folder in Outlook is done per-message via POST /messages/{id}/move
         // We only support moving to a SINGLE folder (the first one in add_label_ids)
-        let target_folder = req.add_label_ids.and_then(|ids| ids.into_iter().next());
+        // We clone getting the first folder ID to avoid borrowing issues while iterating.
+        let target_folder = req.add_label_ids.as_ref().and_then(|ids| ids.first()).cloned();
         
         if let Some(folder_id) = target_folder {
+            let mut tasks = Vec::new();
+            
             for message_id in req.ids {
-                let url = format!("https://graph.microsoft.com/v1.0/me/messages/{}/move", message_id);
-                let body = json!({
-                    "destinationId": folder_id
-                });
+                let client = self.client.clone();
+                let token = token.to_string();
+                let folder_id = folder_id.clone();
+                
+                tasks.push(tokio::spawn(async move {
+                    let url = format!("https://graph.microsoft.com/v1.0/me/messages/{}/move", message_id);
+                    let body = json!({
+                        "destinationId": folder_id
+                    });
 
-                let res = self.client
-                    .post(&url)
-                    .bearer_auth(token)
-                    .json(&body)
-                    .send()
-                    .await?;
+                    client.post(&url)
+                        .bearer_auth(token)
+                        .json(&body)
+                        .send()
+                        .await
+                }));
+            }
 
-                if !res.status().is_success() {
-                    // Fixed Point 10
-                    return Err(AppError::OutlookApi(res.error_for_status().unwrap_err()));
+            // Execute all move requests in parallel
+            let results = futures::future::join_all(tasks).await;
+
+            // Check for errors
+            for res in results {
+                match res {
+                    Ok(Ok(response)) => {
+                        if !response.status().is_success() {
+                            return Err(AppError::OutlookApi(response.error_for_status().unwrap_err()));
+                        }
+                    },
+                    Ok(Err(e)) => return Err(AppError::OutlookApi(e)), // Reqwest error
+                    Err(e) => return Err(AppError::Internal(anyhow::anyhow!("Task join error: {}", e))), // Join error
                 }
             }
         }
