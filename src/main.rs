@@ -52,6 +52,7 @@ async fn main() {
         // Explicitly serve embed.js
         .route("/embed.js", get(handlers::api::get_embed_js))
         .layer(TraceLayer::new_for_http())
+        .layer(tower_http::compression::CompressionLayer::new())
         // Fix Point 4: More restrictive CORS for production
         .layer(
             CorsLayer::new()

@@ -311,22 +311,27 @@ pub async fn send_quote_email(
 pub async fn get_embed_js(
     State(state): State<AppState>,
 ) -> impl IntoResponse {
-    // User Requirement 1: Non-blocking IO
-    let path = "frontend/dist/embed.js";
-    let js = match tokio::fs::read_to_string(path).await {
-        Ok(content) => {
-            // User Requirement 3: Security - inject WIDGET_KEY
-            content.replace("__API_KEY_PLACEHOLDER__", &state.config.widget_api_key)
-        },
-        Err(e) => {
-            tracing::error!("Failed to read embed.js: {:?}", e);
-            "console.error('Widget script not found on server');".to_string()
+    use tokio::sync::OnceCell;
+    static EMBED_JS_CACHE: OnceCell<String> = OnceCell::const_new();
+
+    let js_template = EMBED_JS_CACHE.get_or_init(|| async {
+        let path = "frontend/dist/embed.js";
+        match tokio::fs::read_to_string(path).await {
+            Ok(content) => content,
+            Err(e) => {
+                tracing::error!("Failed to read embed.js: {:?}", e);
+                "console.error('Widget script not found on server');".to_string()
+            }
         }
-    };
+    }).await;
+
+    // Inject API key into cached template
+    let js = js_template.replace("__API_KEY_PLACEHOLDER__", &state.config.widget_api_key);
 
     axum::response::Response::builder()
         .header("Content-Type", "application/javascript")
-        .header("Cache-Control", "no-cache") 
+        // Cache for 1 hour in browser, validate with server occasionally if needed but max-age is good for speed
+        .header("Cache-Control", "public, max-age=3600") 
         .body(axum::body::Body::from(js))
         .unwrap()
 }
