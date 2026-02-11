@@ -306,26 +306,11 @@ pub async fn send_quote_email(
     }]);
 
     // 5. Select Provider
-    // 2. Fetch/Generate PDF (either from provided base64/URL or via Bubble Workflow)
-    // We need both bytes (for email attachment) and potentially URL (for Bubble WF)
-    let (pdf_bytes, filename, pdf_url_for_bubble) = if let (Some(content), Some(name)) = (req.pdf_base64, req.pdf_name) {
-        // ... (lines 198-236 same) ...
-        // I will replicate them to be safe if I cannot use ellipsis for unchanged content outside chunks.
-        // Wait, I can only replace the changed block.
-        // The duplicate comment starts at 194.
-        // The match block ends at 315.
-        // I will replace the whole function body or relevant parts to be safe.
-        // Actually, just fixing the duplicate comment at 194-195 and the match block error message.
-        
-        // Let's target the provider match block first to be sure.
-        let provider_instance: Box<dyn EmailProvider> = match req.provider.as_str() {
-            "gmail" => Box::new(GmailProvider::new(state.client.clone())),
-            "outlook" => Box::new(OutlookProvider::new(state.client.clone())),
-            "postmark" => Box::new(PostmarkProvider::new(state.client.clone(), req.company.clone().unwrap_or_else(|| "Unknown".to_string()))),
-            _ => return Err(AppError::BadRequest("Invalid provider. Use 'gmail', 'outlook', or 'postmark'".to_string())),
-        };
-        
-        provider_instance
+    let provider_instance: Box<dyn EmailProvider> = match req.provider.as_str() {
+        "gmail" => Box::new(GmailProvider::new(state.client.clone())),
+        "outlook" => Box::new(OutlookProvider::new(state.client.clone())),
+        "postmark" => Box::new(PostmarkProvider::new(state.client.clone(), req.company.clone().unwrap_or("Unknown".to_string()))),
+        _ => return Err(AppError::BadRequest("Invalid provider. Use 'gmail', 'outlook', or 'postmark'".to_string())),
     };
     
     let send_req = SendMessageRequest {
