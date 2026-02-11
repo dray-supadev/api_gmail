@@ -225,7 +225,7 @@ function App() {
 
   const handleProviderChange = (newProvider: "gmail" | "outlook" | "postmark") => {
     setProvider(newProvider);
-    setIsNewMailMode(false);
+    setIsNewMailMode(newProvider === "postmark");
     setSelectedThreadId(null);
   };
 

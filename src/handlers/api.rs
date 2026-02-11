@@ -7,7 +7,7 @@ use serde::Deserialize;
 use serde_json::json;
 use crate::error::AppError;
 use crate::state::AppState;
-use super::provider::{EmailProvider, ListParams, SendMessageRequest, BatchModifyRequest, Attachment};
+use super::provider::{EmailProvider, ListParams, SendMessageRequest, BatchModifyRequest};
 use super::gmail::GmailProvider;
 use super::outlook::OutlookProvider;
 use crate::handlers::postmark::PostmarkProvider;
