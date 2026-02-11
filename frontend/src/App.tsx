@@ -172,9 +172,11 @@ function App() {
       setProvider("gmail");
     } else if (!tokens.gmail && tokens.outlook) {
       setProvider("outlook");
+    } else if (!tokens.gmail && !tokens.outlook && company) {
+      setProvider("postmark");
+      setIsNewMailMode(true);
     }
-    // If both are present, we respect the current selection or default
-  }, [tokens.gmail, tokens.outlook]);
+  }, [tokens.gmail, tokens.outlook, company]);
 
   const handleClose = useCallback(() => {
     window.parent.postMessage({ type: 'GMAIL_WIDGET_CLOSE' }, '*');
@@ -293,7 +295,8 @@ function App() {
     }
   }, [activeToken, provider, labels, handleMoveMessage, selectedThreadId]);
 
-  if (isConfigLoaded && !tokens.gmail && !tokens.outlook && !legacyToken) {
+  // Add Postmark to this check or remove it entirely if Postmark should always be available
+  if (isConfigLoaded && !tokens.gmail && !tokens.outlook && !legacyToken && !company) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-background text-foreground">
         <div className="text-center space-y-4 p-8 max-w-md">
