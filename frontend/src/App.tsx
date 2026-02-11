@@ -196,7 +196,9 @@ function App() {
         // For Gmail, we typically remove the current label (e.g. INBOX) when moving
         // If we are in "All Mail" or search, we might not want to remove anything, but assuming usage from a folder:
         if (selectedLabelId && selectedLabelId !== "TRASH" && selectedLabelId !== "SPAM") {
-          req.remove_label_ids = [selectedLabelId];
+          if (selectedLabelId !== newLabelId) {
+            req.remove_label_ids = [selectedLabelId];
+          }
         }
       }
 
