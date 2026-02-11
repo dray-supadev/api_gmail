@@ -81,7 +81,6 @@
             if (config.quoteId) url.searchParams.set("quoteId", config.quoteId);
             if (config.bubbleVersion) url.searchParams.set("bubbleVersion", config.bubbleVersion);
             if (config.company) url.searchParams.set("company", config.company);
-            if (config.company) url.searchParams.set("company", config.company);
             // Security: API Key injection placeholder
             const INJECTED_API_KEY = "__API_KEY_PLACEHOLDER__";
             const apiKey = config.apiKey || INJECTED_API_KEY;

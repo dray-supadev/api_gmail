@@ -96,6 +96,7 @@ function App() {
         if (config.provider) setProvider(config.provider);
         if (config.quoteId) setQuoteId(config.quoteId);
         if (config.bubbleVersion) setBubbleVersion(config.bubbleVersion);
+        if (config.company) setCompany(config.company);
         if (config.pdfExportSettings) {
           setPdfExportSettings(Array.isArray(config.pdfExportSettings) ? config.pdfExportSettings : config.pdfExportSettings.split(",").filter(Boolean));
         }
