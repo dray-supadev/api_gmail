@@ -211,6 +211,19 @@ function App() {
     }
   }, [activeToken, provider, selectedLabelId, selectedThreadId]);
 
+  const [isNewMailMode, setIsNewMailMode] = useState(false);
+
+  const startNewMail = useCallback(() => {
+    setSelectedThreadId(null);
+    setIsNewMailMode(true);
+  }, []);
+
+  const handleProviderChange = (newProvider: "gmail" | "outlook" | "postmark") => {
+    setProvider(newProvider);
+    setIsNewMailMode(false);
+    setSelectedThreadId(null);
+  };
+
   const handleArchive = useCallback(async (messageId: string) => {
     // Archive = Remove INBOX label (Gmail) or Move to Archive (Outlook)
     if (provider === "gmail") {
@@ -302,13 +315,15 @@ function App() {
     <div className="fixed inset-0 flex bg-background text-foreground overflow-hidden font-sans">
       <Sidebar
         currentProvider={provider}
-        onProviderChange={setProvider}
+        onProviderChange={handleProviderChange}
         labels={labels}
         userProfile={userProfile}
         selectedLabelId={selectedLabelId}
         onLabelSelect={setSelectedLabelId}
         gmailDisabled={!tokens.gmail && !legacyToken}
         outlookDisabled={!tokens.outlook}
+        onNewMail={startNewMail}
+        bubbleVersion={bubbleVersion || 'version-test'}
       />
 
       {/* Messages List - Always visible */}
@@ -358,29 +373,32 @@ function App() {
 
         {quoteId && activeToken ? (
           // QUOTE MODE
-          selectedThreadId && selectedMessage ? (
+          (selectedThreadId && selectedMessage) || isNewMailMode ? (
             <QuotePreview
-              key={selectedThreadId} // Re-mount when thread changes to reset/update fields
+              key={selectedThreadId || 'new-mail'}
               quoteId={quoteId}
               version={bubbleVersion}
               token={activeToken}
               provider={provider}
-              initialTo={selectedMessage.from ? [
+              initialTo={isNewMailMode ? [] : (selectedMessage?.from ? [
                 (() => {
                   const match = selectedMessage.from.match(/<([^>]+)>/);
                   return match ? match[1] : selectedMessage.from.trim();
                 })()
-              ] : []}
-              initialSubject={selectedMessage.subject ? `RE: ${selectedMessage.subject}` : "Quote Proposal"}
-              threadId={selectedMessage.thread_id}
+              ] : [])}
+              initialSubject={isNewMailMode ? "Quote Proposal" : (selectedMessage?.subject ? `RE: ${selectedMessage.subject}` : "Quote Proposal")}
+              threadId={isNewMailMode ? undefined : selectedMessage?.thread_id}
               onClose={() => {
                 setQuoteId(null)
+                setIsNewMailMode(false)
                 window.parent.postMessage({ type: 'GMAIL_WIDGET_CLOSE' }, '*')
               }}
               pdfExportSettings={pdfExportSettings}
               pdfBase64={pdfBase64 || undefined}
               pdfName={pdfName || undefined}
               className="w-full h-full border-none shadow-none"
+              // Pass company if needed by QuotePreview? Not currently used there but might be useful for Postmark context
+              company={company || undefined}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground space-y-4">
@@ -390,7 +408,7 @@ function App() {
                 </svg>
               </div>
               <p className="font-medium text-lg">Select conversation to continue</p>
-              <p className="text-sm max-w-xs text-center">Choose an email thread from the left to reply with a quote proposal.</p>
+              <p className="text-sm max-w-xs text-center">Choose an email thread from the left or click "New Mail" to send a proposal.</p>
             </div>
           )
         ) : (

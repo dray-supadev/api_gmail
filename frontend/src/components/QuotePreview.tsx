@@ -16,6 +16,7 @@ interface QuotePreviewProps {
     pdfBase64?: string
     pdfName?: string
     className?: string
+    company?: string
 }
 
 export function QuotePreview({
@@ -30,7 +31,8 @@ export function QuotePreview({
     pdfExportSettings = [],
     pdfBase64,
     pdfName,
-    className
+    className,
+    company
 }: QuotePreviewProps) {
     const [comment, setComment] = useState("")
     const [to, setTo] = useState(initialTo.join(", "))
