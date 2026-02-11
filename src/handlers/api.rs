@@ -10,7 +10,7 @@ use crate::state::AppState;
 use super::provider::{EmailProvider, ListParams, SendMessageRequest, BatchModifyRequest, Attachment};
 use super::gmail::GmailProvider;
 use super::outlook::OutlookProvider;
-use super::postmark::PostmarkProvider;
+use crate::handlers::postmark::PostmarkProvider;
 use crate::services::bubble::BubbleService;
 
 #[derive(Deserialize)]
@@ -324,7 +324,7 @@ pub async fn send_quote_email(
         attachments, 
     };
     
-    let result = provider_instance.send_message(token, send_req).await?;
+    let result: serde_json::Value = provider_instance.send_message(token, send_req).await?;
     
     Ok(Json(result).into_response())
 }
