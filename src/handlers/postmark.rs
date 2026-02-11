@@ -1,7 +1,7 @@
-use super::provider::{EmailProvider, ListParams, SendMessageRequest, BatchModifyRequest, CleanMessage, UserProfile, Label, Attachment};
+use super::provider::{EmailProvider, ListParams, SendMessageRequest, BatchModifyRequest, CleanMessage, UserProfile, Label};
 use crate::error::AppError;
 use async_trait::async_trait;
-use reqwest::{Client, StatusCode};
+use reqwest::Client;
 use serde_json::json;
 
 pub struct PostmarkProvider {
@@ -34,7 +34,7 @@ impl EmailProvider for PostmarkProvider {
     }
 
     async fn get_message(&self, _token: &str, _id: &str) -> Result<CleanMessage, AppError> {
-        Err(AppError::NotFound("Message viewing not supported for Postmark".to_string()))
+        Err(AppError::BadRequest("Message viewing not supported for Postmark".to_string()))
     }
 
     async fn send_message(&self, _token: &str, req: SendMessageRequest) -> Result<serde_json::Value, AppError> {
