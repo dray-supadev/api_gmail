@@ -171,27 +171,4 @@ export function Sidebar({
         </div>
     )
 }
-onClick = {() => onLabelSelect(label.id)}
-className = {
-    cn(
-                                "flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer text-sm font-medium transition-colors hover:bg-accent/50",
-        selectedLabelId === label.id ? "bg-accent text-accent-foreground" : "text-muted-foreground"
-                            )}
-                        >
-    <Icon className="w-5 h-5 shrink-0" />
-{ !collapsed && <span className="flex-1 truncate">{label.name}</span> }
-                        </div >
-                    );
-                })}
 
-{
-    labels.length === 0 && !collapsed && (
-        <div className="px-3 py-4 text-xs text-center text-muted-foreground italic">
-            No labels found
-        </div>
-    )
-}
-            </nav >
-        </div >
-    )
-}
