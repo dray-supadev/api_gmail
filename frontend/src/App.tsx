@@ -37,7 +37,10 @@ function App() {
   const [authError, setAuthError] = useState(false)
 
   // Derived active token: uses specific provider token if available, falls back to legacy/generic token
-  const activeToken = provider === "gmail" ? (tokens.gmail || legacyToken) : (tokens.outlook || legacyToken)
+  const activeToken = provider === "gmail" ? (tokens.gmail || legacyToken) :
+    provider === "outlook" ? (tokens.outlook || legacyToken) :
+      provider === "postmark" ? "postmark-token" : // Dummy token for UI logic
+        null;
 
   const [isConfigLoaded, setIsConfigLoaded] = useState(false)
 
