@@ -43,6 +43,8 @@ export function QuotePreview({
 
     const [templateHtml, setTemplateHtml] = useState<string>("")
 
+    const [success, setSuccess] = useState(false)
+
     // Derived state for the actual HTML in the iframe
     const previewHtml = templateHtml.replace(/<comment>/g, comment.replace(/\n/g, "<br>"))
 
@@ -99,13 +101,32 @@ export function QuotePreview({
                 maildata_identificator: maildata_identificator,
                 company
             })
-            onClose()
+            setSuccess(true)
+            setTimeout(() => {
+                onClose()
+            }, 2500)
         } catch (e) {
             console.error(e)
             alert("Failed to send quote")
-        } finally {
             setSending(false)
         }
+    }
+
+    if (success) {
+        return (
+            <div className={cn("flex flex-col h-full bg-white relative items-center justify-center space-y-4 animate-in fade-in duration-300", className)}>
+                <div className="h-20 w-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+                <h2 className="text-2xl font-bold text-slate-800">Quote Sent Successfully!</h2>
+                <p className="text-muted-foreground text-center max-w-xs">
+                    Your quote has been sent via {provider === 'postmark' ? 'Postmark' : provider === 'gmail' ? 'Gmail' : 'Outlook'}.
+                    <br />Closing widget...
+                </p>
+            </div>
+        )
     }
 
     return (

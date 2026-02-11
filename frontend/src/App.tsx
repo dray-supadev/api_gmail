@@ -296,6 +296,17 @@ function App() {
   }, [activeToken, provider, labels, handleMoveMessage, selectedThreadId]);
 
   // Add Postmark to this check or remove it entirely if Postmark should always be available
+
+  if (!isConfigLoaded) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-white z-[9999]">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="h-12 w-12 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin"></div>
+        </div>
+      </div>
+    )
+  }
+
   if (isConfigLoaded && !tokens.gmail && !tokens.outlook && !legacyToken && !company) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-background text-foreground">
