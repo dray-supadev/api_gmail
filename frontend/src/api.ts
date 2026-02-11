@@ -140,8 +140,13 @@ export const api = {
         return await handleResponse(res);
     },
 
-    async getProfile(token: string, provider: string): Promise<UserProfile> {
-        const res = await fetch(`${API_BASE}/api/profile?provider=${provider}`, {
+    async getProfile(token: string, provider: string, company?: string): Promise<UserProfile> {
+        let url = `${API_BASE}/api/profile?provider=${provider}`;
+        if (company) {
+            url += `&company=${encodeURIComponent(company)}`;
+        }
+
+        const res = await fetch(url, {
             headers: {
                 "Authorization": `Bearer ${token}`,
                 ...(globalApiKey ? { "x-api-key": globalApiKey } : {})
