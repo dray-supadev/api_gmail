@@ -1,12 +1,13 @@
 import { useState } from "react"
 import { Inbox, Folder, Send, FileText, Trash2, Mail, Archive } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { Label } from "../api"
+import type { Label, UserProfile } from "../api"
 
 interface SidebarProps {
     currentProvider: "gmail" | "outlook"
     onProviderChange: (provider: "gmail" | "outlook") => void
     labels: Label[]
+    userProfile?: UserProfile | null
     selectedLabelId: string
     onLabelSelect: (id: string) => void
     gmailDisabled?: boolean
@@ -17,6 +18,7 @@ export function Sidebar({
     currentProvider,
     onProviderChange,
     labels,
+    userProfile,
     selectedLabelId,
     onLabelSelect,
     gmailDisabled,
@@ -57,6 +59,27 @@ export function Sidebar({
                 </button>
             </div>
 
+            {/* Profile Info */}
+            {
+                userProfile && !collapsed && (
+                    <div className="px-4 py-2 border-b">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Authenticated as</p>
+                        <div className="flex items-center gap-2 overflow-hidden">
+                            {userProfile.picture ? (
+                                <img src={userProfile.picture} alt="Profile" className="w-5 h-5 rounded-full" />
+                            ) : (
+                                <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-500">
+                                    {userProfile.email.charAt(0).toUpperCase()}
+                                </div>
+                            )}
+                            <span className="text-sm truncate text-foreground" title={userProfile.email}>
+                                {userProfile.email}
+                            </span>
+                        </div>
+                    </div>
+                )
+            }
+
             {/* Menu - Labels */}
             <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
                 {labels.map((label) => {
@@ -93,6 +116,6 @@ export function Sidebar({
                     </div>
                 )}
             </nav>
-        </div>
+        </div >
     )
 }

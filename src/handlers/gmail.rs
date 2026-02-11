@@ -62,7 +62,8 @@ impl GmailProvider {
             id: id.to_string(),
             subject: message.subject().map(|s| s.to_string()),
             from: message.from().map(|f| f.first().map(|a| a.name().unwrap_or(a.address().unwrap_or("Unknown"))).unwrap_or("Unknown").to_string()),
-            to: message.to().map(|t| t.first().map(|a| a.address().unwrap_or("Unknown")).unwrap_or("Unknown").to_string()), 
+            to: message.to().map(|t| t.iter().map(|a| a.address().unwrap_or("Unknown").to_string()).collect()),
+            cc: message.cc().map(|c| c.iter().map(|a| a.address().unwrap_or("Unknown").to_string()).collect()),
             date: message.date().map(|d| d.to_rfc3339()),
             snippet: data["snippet"].as_str().unwrap_or("").to_string(),
             body_text: message.body_text(0).map(|b| b.to_string()),
@@ -483,6 +484,28 @@ impl EmailProvider for GmailProvider {
         }
 
         Ok(())
+    }
+
+    async fn get_profile(&self, token: &str) -> Result<crate::handlers::provider::UserProfile, AppError> {
+        let url = "https://gmail.googleapis.com/gmail/v1/users/me/profile";
+        
+        let res = self.client
+            .get(url)
+            .bearer_auth(token)
+            .send()
+            .await?;
+
+        if !res.status().is_success() {
+            return Err(AppError::GmailApi(res.error_for_status().unwrap_err()));
+        }
+
+        let data: serde_json::Value = res.json().await?;
+        
+        Ok(crate::handlers::provider::UserProfile {
+            email: data["emailAddress"].as_str().unwrap_or("").to_string(),
+            name: None, // GMail API profile doesn't directly give name, requires People API. For now, email is enough.
+            picture: None,
+        })
     }
 }
 

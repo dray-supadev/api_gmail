@@ -3,7 +3,7 @@ import { Sidebar } from './components/Sidebar'
 import { MessageList } from './components/MessageList'
 import { QuotePreview } from './components/QuotePreview'
 import { api } from './api'
-import type { Message, Label } from './api'
+import type { Message, Label, UserProfile } from './api'
 import { X } from 'lucide-react'
 
 function App() {
@@ -26,6 +26,7 @@ function App() {
 
   const [messages, setMessages] = useState<Message[]>([])
   const [labels, setLabels] = useState<Label[]>([])
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [selectedLabelId, setSelectedLabelId] = useState<string>("INBOX")
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -117,6 +118,10 @@ function App() {
     api.listLabels(activeToken, provider)
       .then(setLabels)
       .catch(err => console.error("Failed to load labels:", err));
+
+    api.getProfile(activeToken, provider)
+      .then(setUserProfile)
+      .catch(err => console.error("Failed to load profile:", err));
   }, [activeToken, provider, isConfigLoaded]);
 
   // Fetch messages when token or label changes
@@ -204,6 +209,69 @@ function App() {
     }
   }, [activeToken, provider, selectedLabelId, selectedThreadId]);
 
+  const handleArchive = useCallback(async (messageId: string) => {
+    // Archive = Remove INBOX label (Gmail) or Move to Archive (Outlook)
+    if (provider === "gmail") {
+      // Gmail: Remove "INBOX" label
+      // Assuming "INBOX" is the ID for the inbox.
+      // If we are currently in INBOX label, we remove it.
+      // If we are in another label, archiving usually implies removing INBOX if present.
+      // But our API `batchModify` takes `removeLabelIds`.
+      // We'll optimistically remove from list.
+      setMessages(prev => prev.filter(m => m.id !== messageId));
+      if (selectedThreadId === messageId) setSelectedThreadId(null);
+
+      try {
+        await api.modifyLabels(activeToken!, provider, {
+          ids: [messageId],
+          remove_label_ids: ["INBOX"]
+        });
+      } catch (e) {
+        console.error("Archive failed", e);
+        // Handle revert if needed
+      }
+    } else {
+      // Outlook: Move to "Archive" folder.
+      // We need to find the Archive folder ID.
+      // We can fallback to just removing from current list if we can't find it, 
+      // but for Outlook we really need to Move.
+      const archiveLabel = labels.find(l => l.name.toLowerCase() === "archive");
+      if (archiveLabel) {
+        handleMoveMessage(messageId, archiveLabel.id);
+      } else {
+        console.warn("Archive folder not found for Outlook");
+        alert("Archive folder not found.");
+      }
+    }
+  }, [activeToken, provider, labels, handleMoveMessage, selectedThreadId]);
+
+  const handleDelete = useCallback(async (messageId: string) => {
+    setMessages(prev => prev.filter(m => m.id !== messageId));
+    if (selectedThreadId === messageId) setSelectedThreadId(null);
+
+    // Gmail: Add TRASH label.
+    // Outlook: Move to Deleted Items.
+
+    try {
+      if (provider === "gmail") {
+        await api.modifyLabels(activeToken!, provider, {
+          ids: [messageId],
+          add_label_ids: ["TRASH"]
+        });
+      } else {
+        // Outlook: Find TRASH folder
+        const trashLabel = labels.find(l => l.name.toLowerCase().includes("deleted") || l.name.toLowerCase().includes("trash") || l.id === "TRASH");
+        if (trashLabel) {
+          handleMoveMessage(messageId, trashLabel.id);
+        } else {
+          console.warn("Trash folder not found for Outlook");
+        }
+      }
+    } catch (e) {
+      console.error("Delete failed", e);
+    }
+  }, [activeToken, provider, labels, handleMoveMessage, selectedThreadId]);
+
   if (isConfigLoaded && !tokens.gmail && !tokens.outlook && !legacyToken) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-background text-foreground">
@@ -234,6 +302,7 @@ function App() {
         currentProvider={provider}
         onProviderChange={setProvider}
         labels={labels}
+        userProfile={userProfile}
         selectedLabelId={selectedLabelId}
         onLabelSelect={setSelectedLabelId}
         gmailDisabled={!tokens.gmail && !legacyToken}
@@ -270,6 +339,8 @@ function App() {
           labelName={labels.find(l => l.id === selectedLabelId)?.name || "Inbox"}
           labels={labels}
           onMove={handleMoveMessage}
+          onArchive={handleArchive}
+          onDelete={handleDelete}
         />
       )}
 

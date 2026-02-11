@@ -20,7 +20,8 @@ pub struct CleanMessage {
     pub id: String,
     pub subject: Option<String>,
     pub from: Option<String>,
-    pub to: Option<String>,
+    pub to: Option<Vec<String>>,
+    pub cc: Option<Vec<String>>,
     pub date: Option<String>,
     pub snippet: String,
     pub body_text: Option<String>,
@@ -41,6 +42,13 @@ pub struct Attachment {
     pub filename: String,
     pub content: Vec<u8>,
     pub mime_type: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UserProfile {
+    pub email: String,
+    pub name: Option<String>,
+    pub picture: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -73,7 +81,9 @@ pub trait EmailProvider: Send + Sync {
     async fn get_message(&self, token: &str, id: &str) -> Result<CleanMessage, AppError>;
     async fn send_message(&self, token: &str, req: SendMessageRequest) -> Result<serde_json::Value, AppError>;
     async fn list_labels(&self, token: &str) -> Result<Vec<Label>, AppError>;
+    async fn list_labels(&self, token: &str) -> Result<Vec<Label>, AppError>;
     async fn batch_modify_labels(&self, token: &str, req: BatchModifyRequest) -> Result<(), AppError>;
+    async fn get_profile(&self, token: &str) -> Result<UserProfile, AppError>;
 }
 
 #[derive(Deserialize, Debug)]

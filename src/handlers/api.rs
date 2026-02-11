@@ -106,6 +106,21 @@ pub async fn batch_modify_labels(
     Ok(Json(json!({"status": "ok"})).into_response())
 }
 
+    Ok(Json(json!({"status": "ok"})).into_response())
+}
+
+pub async fn get_profile(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(provider_params): Query<ProviderParams>,
+) -> Result<Response, AppError> {
+    let token = get_token(&headers)?;
+    let provider = get_provider(&provider_params, state.client.clone());
+    
+    let result = provider.get_profile(token).await?;
+    Ok(Json(result).into_response())
+}
+
 // --- Quote Endpoints ---
 
 #[derive(Deserialize)]

@@ -44,6 +44,7 @@ async fn main() {
         .route("/api/messages/send", post(handlers::api::send_message))
         .route("/api/labels", get(handlers::api::list_labels))
         .route("/api/labels/batch-modify", post(handlers::api::batch_modify_labels))
+        .route("/api/profile", get(handlers::api::get_profile))
         .route("/api/quote/preview", post(handlers::api::preview_quote))
         .route("/api/quote/send", post(handlers::api::send_quote_email))
         // Apply Auth Middleware to /api routes (Fix Point 5)

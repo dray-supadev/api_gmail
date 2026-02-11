@@ -121,9 +121,14 @@ impl EmailProvider for OutlookProvider {
         // Extract recipients
         let to = data["toRecipients"].as_array().map(|recipients| {
             recipients.iter()
-                .filter_map(|r| r["emailAddress"]["address"].as_str())
-                .collect::<Vec<&str>>()
-                .join(", ")
+                .filter_map(|r| r["emailAddress"]["address"].as_str().map(|s| s.to_string()))
+                .collect::<Vec<String>>()
+        });
+
+        let cc = data["ccRecipients"].as_array().map(|recipients| {
+            recipients.iter()
+                .filter_map(|r| r["emailAddress"]["address"].as_str().map(|s| s.to_string()))
+                .collect::<Vec<String>>()
         });
 
         Ok(CleanMessage {
@@ -131,6 +136,7 @@ impl EmailProvider for OutlookProvider {
             subject,
             from,
             to,
+            cc,
             date,
             snippet,
             body_text: data["body"]["content"].as_str().map(|s| s.to_string()),
@@ -290,5 +296,29 @@ impl EmailProvider for OutlookProvider {
         }
 
         Ok(())
+    }
+
+    async fn get_profile(&self, token: &str) -> Result<crate::handlers::provider::UserProfile, AppError> {
+        let url = "https://graph.microsoft.com/v1.0/me";
+        
+        let res = self.client
+            .get(url)
+            .bearer_auth(token)
+            .send()
+            .await?;
+
+        if !res.status().is_success() {
+             return Err(AppError::OutlookApi(res.error_for_status().unwrap_err()));
+        }
+        
+        let data: serde_json::Value = res.json().await?;
+        
+        Ok(crate::handlers::provider::UserProfile {
+            email: data["mail"].as_str()
+                .or_else(|| data["userPrincipalName"].as_str())
+                .unwrap_or("").to_string(),
+            name: data["displayName"].as_str().map(|s| s.to_string()),
+            picture: None,
+        })
     }
 }

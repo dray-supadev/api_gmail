@@ -4,9 +4,17 @@ export interface Message {
     snippet: string;
     subject?: string;
     from?: string;
+    to?: string[];
+    cc?: string[];
     date?: string;
     unread: boolean;
     has_attachments: boolean;
+}
+
+export interface UserProfile {
+    email: string;
+    name?: string;
+    picture?: string;
 }
 
 export interface Label {
@@ -127,6 +135,16 @@ export const api = {
                 ...(globalApiKey ? { "x-api-key": globalApiKey } : {})
             },
             body: JSON.stringify(req)
+        });
+        return await handleResponse(res);
+    },
+
+    async getProfile(token: string, provider: string): Promise<UserProfile> {
+        const res = await fetch(`${API_BASE}/api/profile?provider=${provider}`, {
+            headers: {
+                "Authorization": `Bearer ${token}`,
+                ...(globalApiKey ? { "x-api-key": globalApiKey } : {})
+            }
         });
         return await handleResponse(res);
     }

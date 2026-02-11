@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react"
-import { Search, FolderInput } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Search, FolderInput, MoreVertical, Archive, Trash2 } from "lucide-react"
+import { cn, formatDate } from "@/lib/utils"
 
 import type { Message, Label } from "../api"
 
@@ -12,9 +12,11 @@ interface MessageListProps {
     labelName?: string
     labels?: Label[]
     onMove?: (messageId: string, newLabelId: string) => void
+    onArchive?: (messageId: string) => void
+    onDelete?: (messageId: string) => void
 }
 
-export function MessageList({ messages, selectedId, onSelect, onSearch, labelName = "Inbox", labels = [], onMove }: MessageListProps) {
+export function MessageList({ messages, selectedId, onSelect, onSearch, labelName = "Inbox", labels = [], onMove, onArchive, onDelete }: MessageListProps) {
     const [searchText, setSearchText] = useState("")
 
     if (!messages.length && !searchText) {
@@ -60,6 +62,8 @@ export function MessageList({ messages, selectedId, onSelect, onSearch, labelNam
                         onSelect={onSelect}
                         labels={labels}
                         onMove={onMove}
+                        onArchive={onArchive}
+                        onDelete={onDelete}
                     />
                 ))}
             </div>
@@ -73,9 +77,11 @@ interface MessageItemProps {
     onSelect: (id: string) => void
     labels: Label[]
     onMove?: (messageId: string, newLabelId: string) => void
+    onArchive?: (messageId: string) => void
+    onDelete?: (messageId: string) => void
 }
 
-function MessageItem({ message, isSelected, onSelect, labels, onMove }: MessageItemProps) {
+function MessageItem({ message, isSelected, onSelect, labels, onMove, onArchive, onDelete }: MessageItemProps) {
     const [showMoveMenu, setShowMoveMenu] = useState(false)
     const menuRef = useRef<HTMLDivElement>(null)
 
@@ -117,21 +123,55 @@ function MessageItem({ message, isSelected, onSelect, labels, onMove }: MessageI
                             setShowMoveMenu(!showMoveMenu)
                         }}
                         className="p-1.5 rounded-full hover:bg-background text-muted-foreground hover:text-foreground shadow-sm bg-white/80 backdrop-blur-sm border"
-                        title="Move to..."
+                        title="Actions"
                     >
-                        <FolderInput className="h-4 w-4" />
+                        <MoreVertical className="h-4 w-4" />
                     </button>
 
-                    {/* Move Menu Dropdown */}
+                    {/* Move/Action Menu Dropdown */}
                     {showMoveMenu && (
-                        <div className="absolute right-0 mt-1 w-48 bg-popover text-popover-foreground border rounded-md shadow-lg z-50 py-1 max-h-60 overflow-y-auto">
-                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Move to...</div>
+                        <div className="absolute right-0 mt-1 w-48 bg-popover text-popover-foreground border rounded-md shadow-lg z-50 py-1 max-h-80 overflow-y-auto">
+                            {/* Actions */}
+                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</div>
+
+                            {onArchive && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        onArchive(message.id)
+                                        setShowMoveMenu(false)
+                                    }}
+                                    className="w-full text-left px-2 py-2 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2"
+                                >
+                                    <Archive className="h-4 w-4" />
+                                    <span>Archive</span>
+                                </button>
+                            )}
+
+                            {onDelete && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        onDelete(message.id)
+                                        setShowMoveMenu(false)
+                                    }}
+                                    className="w-full text-left px-2 py-2 text-sm hover:bg-red-50 hover:text-red-600 flex items-center gap-2 text-red-500"
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                    <span>Delete</span>
+                                </button>
+                            )}
+
+                            <div className="my-1 border-t" />
+
+                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Move to...</div>
                             {labels.map((label) => (
                                 <button
                                     key={label.id}
                                     onClick={(e) => handleMoveClick(e, label.id)}
-                                    className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground flex items-center"
+                                    className="w-full text-left px-2 py-2 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2"
                                 >
+                                    <FolderInput className="h-4 w-4 opacity-50" />
                                     <span className="truncate">{label.name}</span>
                                 </button>
                             ))}
@@ -145,7 +185,7 @@ function MessageItem({ message, isSelected, onSelect, labels, onMove }: MessageI
                     {message.from || "Unknown"}
                 </span>
                 <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
-                    {message.date || ""}
+                    {formatDate(message.date)}
                 </span>
             </div>
             <h3 className={cn("text-sm mb-1 truncate pr-6", message.unread ? "text-foreground" : "")}>
