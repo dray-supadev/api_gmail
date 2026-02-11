@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, Query, Json},
+    extract::{Path, Query, Json, State},
     http::HeaderMap,
     response::{IntoResponse, Response},
 };
@@ -7,9 +7,11 @@ use serde::Deserialize;
 use serde_json::json;
 use crate::error::AppError;
 use crate::state::AppState;
-use super::provider::{EmailProvider, ListParams, SendMessageRequest, BatchModifyRequest};
+use super::provider::{EmailProvider, ListParams, SendMessageRequest, BatchModifyRequest, Attachment};
 use super::gmail::GmailProvider;
+use super::outlook::OutlookProvider;
 use super::postmark::PostmarkProvider;
+use crate::services::bubble::BubbleService;
 
 #[derive(Deserialize)]
 pub struct ProviderParams {
