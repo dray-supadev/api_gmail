@@ -11,7 +11,7 @@ use super::provider::{EmailProvider, ListParams, SendMessageRequest, BatchModify
 use super::gmail::GmailProvider;
 use super::outlook::OutlookProvider;
 use crate::services::bubble::BubbleService;
-use html_escape::encode_safe;
+
 use axum::extract::State;
 
 #[derive(Deserialize)]

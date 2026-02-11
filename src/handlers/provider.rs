@@ -81,7 +81,6 @@ pub trait EmailProvider: Send + Sync {
     async fn get_message(&self, token: &str, id: &str) -> Result<CleanMessage, AppError>;
     async fn send_message(&self, token: &str, req: SendMessageRequest) -> Result<serde_json::Value, AppError>;
     async fn list_labels(&self, token: &str) -> Result<Vec<Label>, AppError>;
-    async fn list_labels(&self, token: &str) -> Result<Vec<Label>, AppError>;
     async fn batch_modify_labels(&self, token: &str, req: BatchModifyRequest) -> Result<(), AppError>;
     async fn get_profile(&self, token: &str) -> Result<UserProfile, AppError>;
 }
