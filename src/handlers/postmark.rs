@@ -12,9 +12,7 @@ pub struct PostmarkProvider {
 
 impl PostmarkProvider {
     pub fn new(client: Client, company: String) -> Self {
-        // Updated to use env var, fallback to previous hardcoded for safety
-        let token = std::env::var("POSTMARK_API_TOKEN")
-            .unwrap_or_else(|_| "23b164b6-f37b-4f21-9ac2-c42dd65ec4b8".to_string());
+        let token = std::env::var("POSTMARK_API_TOKEN").expect("POSTMARK_API_TOKEN environment variable must be set");
             
         Self {
             client,
