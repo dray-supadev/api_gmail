@@ -9,14 +9,12 @@ use crate::error::AppError;
 use crate::state::AppState;
 use super::provider::{EmailProvider, ListParams, SendMessageRequest, BatchModifyRequest};
 use super::gmail::GmailProvider;
-use super::outlook::OutlookProvider;
-use crate::services::bubble::BubbleService;
-
-use axum::extract::State;
+use super::postmark::PostmarkProvider;
 
 #[derive(Deserialize)]
 pub struct ProviderParams {
     pub provider: Option<String>,
+    pub company: Option<String>,
 }
 
 fn get_token(headers: &HeaderMap) -> Result<&str, AppError> {
@@ -29,15 +27,35 @@ fn get_token(headers: &HeaderMap) -> Result<&str, AppError> {
              headers.get("x-google-token").and_then(|h| h.to_str().ok())
         })
         .map(|t| t.trim())
-        .filter(|t| !t.is_empty())
-        .ok_or(AppError::MissingToken)?;
+        .filter(|t| !t.is_empty());
+
+    // Allow empty token for Postmark provider, as it uses server-side token
+    // But get_token returns Result<&str>, so we need to handle this caller side or allow it here?
+    // Actually, get_provider is called *after* get_token.
+    // Making get_token optional or handling Postmark specifically.
+    // For now, let's keep get_token strict but maybe pass a dummy token from frontend for Postmark?
+    // Or we handle it here: if no token found, check if provider param says postmark?
+    // But we don't have access to params here easily without extracting it.
+    // Let's stick to requiring a token, frontend can send "postmark-token" or similar dummy.
+    // Wait, the user said "Postmark Token - ...". It is server token.
+    // So client doesn't have a user token.
     
-    Ok(token)
+    if let Some(t) = token {
+        Ok(t)
+    } else {
+        // We defer error to the provider usage if needed, but the current sig returns Result.
+        // Let's return a specific error or handle "postmark" exception at call site?
+        // Actually, let's allow it to be optional in get_token logic if we change signature?
+        // No, that breaks too much.
+        // Be pragmatic: Client MUST send a token. For Postmark, client can send "dummy".
+        Err(AppError::MissingToken)
+    }
 }
 
 fn get_provider(params: &ProviderParams, client: reqwest::Client) -> Box<dyn EmailProvider> {
     match params.provider.as_deref() {
         Some("outlook") | Some("microsoft") => Box::new(OutlookProvider::new(client)),
+        Some("postmark") => Box::new(PostmarkProvider::new(client, params.company.clone().unwrap_or("Unknown".to_string()))),
         _ => Box::new(GmailProvider::new(client)), // Default to Gmail
     }
 }
@@ -161,6 +179,7 @@ pub struct SendQuoteRequest {
     pub pdf_base64: Option<String>,
     pub pdf_name: Option<String>,
     pub maildata_identificator: Option<String>,
+    pub company: Option<String>,
 }
 
 pub async fn send_quote_email(
@@ -172,7 +191,6 @@ pub async fn send_quote_email(
     
     // 1. Setup Services
     let bubble_service = BubbleService::new(state.client.clone())?;
-    // 2. Fetch/Generate PDF (either from provided base64/URL or via Bubble Workflow)
     // 2. Fetch/Generate PDF (either from provided base64/URL or via Bubble Workflow)
     // We need both bytes (for email attachment) and potentially URL (for Bubble WF)
     let (pdf_bytes, filename, pdf_url_for_bubble) = if let (Some(content), Some(name)) = (req.pdf_base64, req.pdf_name) {
@@ -288,10 +306,26 @@ pub async fn send_quote_email(
     }]);
 
     // 5. Select Provider
-    let provider_instance: Box<dyn EmailProvider> = match req.provider.as_str() {
-        "gmail" => Box::new(GmailProvider::new(state.client.clone())),
-        "outlook" => Box::new(OutlookProvider::new(state.client.clone())),
-        _ => return Err(AppError::BadRequest("Invalid provider. Use 'gmail' or 'outlook'".to_string())),
+    // 2. Fetch/Generate PDF (either from provided base64/URL or via Bubble Workflow)
+    // We need both bytes (for email attachment) and potentially URL (for Bubble WF)
+    let (pdf_bytes, filename, pdf_url_for_bubble) = if let (Some(content), Some(name)) = (req.pdf_base64, req.pdf_name) {
+        // ... (lines 198-236 same) ...
+        // I will replicate them to be safe if I cannot use ellipsis for unchanged content outside chunks.
+        // Wait, I can only replace the changed block.
+        // The duplicate comment starts at 194.
+        // The match block ends at 315.
+        // I will replace the whole function body or relevant parts to be safe.
+        // Actually, just fixing the duplicate comment at 194-195 and the match block error message.
+        
+        // Let's target the provider match block first to be sure.
+        let provider_instance: Box<dyn EmailProvider> = match req.provider.as_str() {
+            "gmail" => Box::new(GmailProvider::new(state.client.clone())),
+            "outlook" => Box::new(OutlookProvider::new(state.client.clone())),
+            "postmark" => Box::new(PostmarkProvider::new(state.client.clone(), req.company.clone().unwrap_or_else(|| "Unknown".to_string()))),
+            _ => return Err(AppError::BadRequest("Invalid provider. Use 'gmail', 'outlook', or 'postmark'".to_string())),
+        };
+        
+        provider_instance
     };
     
     let send_req = SendMessageRequest {
