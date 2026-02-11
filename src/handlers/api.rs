@@ -106,9 +106,6 @@ pub async fn batch_modify_labels(
     Ok(Json(json!({"status": "ok"})).into_response())
 }
 
-    Ok(Json(json!({"status": "ok"})).into_response())
-}
-
 pub async fn get_profile(
     State(state): State<AppState>,
     headers: HeaderMap,
