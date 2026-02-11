@@ -96,7 +96,8 @@ export function QuotePreview({
                 html_body: previewHtml,
                 pdf_base64: pdfBase64,
                 pdf_name: pdfName,
-                maildata_identificator: maildata_identificator
+                maildata_identificator: maildata_identificator,
+                company
             })
             onClose()
         } catch (e) {

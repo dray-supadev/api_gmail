@@ -7,11 +7,12 @@ import type { Message, Label, UserProfile } from './api'
 import { X } from 'lucide-react'
 
 function App() {
-  const [provider, setProvider] = useState<"gmail" | "outlook">("gmail")
+  const [provider, setProvider] = useState<"gmail" | "outlook" | "postmark">("gmail")
 
   // Store tokens for each provider
   const [tokens, setTokens] = useState<{ gmail?: string, outlook?: string }>({})
   const [legacyToken, setLegacyToken] = useState<string>("")
+  const [company, setCompany] = useState<string | null>(null)
 
   const [quoteId, setQuoteId] = useState<string | null>(null)
   const [bubbleVersion, setBubbleVersion] = useState<string | undefined>(undefined)
@@ -72,6 +73,7 @@ function App() {
 
     setPdfBase64(params.get("pdfBase64"));
     setPdfName(params.get("pdfName"));
+    setCompany(params.get("company"));
 
     setIsConfigLoaded(true);
   }, [])

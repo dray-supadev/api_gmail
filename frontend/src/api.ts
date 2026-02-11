@@ -50,6 +50,7 @@ export interface SendQuoteRequest {
     pdf_base64?: string;
     pdf_name?: string;
     maildata_identificator?: string;
+    company?: string;
 }
 
 const API_BASE = import.meta.env.PROD ? "" : "http://localhost:3000";
