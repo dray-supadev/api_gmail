@@ -124,10 +124,10 @@ function App() {
       .then(setLabels)
       .catch(err => console.error("Failed to load labels:", err));
 
-    api.getProfile(activeToken, provider)
+    api.getProfile(activeToken, provider, company || undefined)
       .then(setUserProfile)
       .catch(err => console.error("Failed to load profile:", err));
-  }, [activeToken, provider, isConfigLoaded]);
+  }, [activeToken, provider, isConfigLoaded, company]);
 
   // Fetch messages when token or label changes
   useEffect(() => {
