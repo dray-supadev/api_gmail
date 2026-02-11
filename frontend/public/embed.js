@@ -48,7 +48,6 @@
 
 
             // Create Iframe
-            // Create Iframe
             const iframe = document.createElement("iframe");
 
             // Auto-detect domain from the script tag source, or fallback to config
