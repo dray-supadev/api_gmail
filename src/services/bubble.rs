@@ -23,23 +23,6 @@ impl BubbleService {
         })
     }
 
-    pub async fn fetch_quote(&self, version: Option<&str>, quote_id: &str) -> Result<Value, AppError> {
-        let version_path = version.unwrap_or("version-test"); // Default for safety, but should be passed
-        let url = format!("{}/{}/api/1.1/obj/quote_details/{}", self.base_url, version_path, quote_id); // Dynamic version URL
-
-        let res = self.client.get(&url)
-            .bearer_auth(&self.api_token)
-            .send()
-            .await?;
-
-        if !res.status().is_success() {
-             return Err(AppError::BubbleApi(res.error_for_status().unwrap_err()));
-        }
-
-        let body: Value = res.json().await?;
-        Ok(body)
-    }
-
     pub async fn generate_pdf_via_workflow(&self, quote_id: &str, version: Option<&str>, settings: Option<Vec<String>>) -> Result<(Vec<u8>, String, String), AppError> {
         let version_path = version.unwrap_or("version-test");
         let url = format!("{}/{}/api/1.1/wf/get_quote_json", self.base_url, version_path);
