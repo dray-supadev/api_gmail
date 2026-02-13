@@ -5,6 +5,7 @@ use axum::{
 };
 use serde::Deserialize;
 use serde_json::json;
+use regex::Regex;
 use crate::error::AppError;
 use crate::state::AppState;
 use super::provider::{EmailProvider, ListParams, SendMessageRequest, BatchModifyRequest};
