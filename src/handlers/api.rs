@@ -370,8 +370,12 @@ pub async fn reminder_webhook(
         }
     };
 
-    // 2. Get Token
-    let token = req.keys.as_deref().ok_or_else(|| AppError::BadRequest("API Key (keys) is required for reminder webhook".to_string()))?;
+    // 2. Get Token (Optional for Postmark)
+    let token = match req.keys.as_deref() {
+        Some(t) => t,
+        None if req.platform == "postmark" => "", // Use empty string, provider will use fallback token
+        None => return Err(AppError::BadRequest("API Key (keys) is required for reminder webhook".to_string())),
+    };
 
     // 3. Download/Prepare Attachment
     let (file_bytes, filename) = if req.file.starts_with("http") || req.file.starts_with("//") {
