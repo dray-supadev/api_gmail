@@ -354,12 +354,25 @@ pub struct ReminderWebhookRequest {
 
 pub async fn reminder_webhook(
     State(state): State<AppState>,
-    Json(req): Json<ReminderWebhookRequest>,
+    body: String,
 ) -> Result<impl IntoResponse, AppError> {
-    // 1. Get Token (from keys field or fallback to headers if needed, but keys is priority for webhooks)
+    // 1. Try standard JSON parsing first
+    let req: ReminderWebhookRequest = match serde_json::from_str(&body) {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!("Standard JSON parsing failed: {}. Attempting lenient parsing...", e);
+            // 2. Fallback: Lenient parsing for malformed JSON with unescaped HTML quotes
+            match try_parse_malformed_reminder_json(&body) {
+                Some(r) => r,
+                None => return Err(AppError::BadRequest(format!("Failed to parse request body: {}. Note: Use ':formatted as JSON-safe' in Bubble for HTML content.", e))),
+            }
+        }
+    };
+
+    // 2. Get Token
     let token = req.keys.as_deref().ok_or_else(|| AppError::BadRequest("API Key (keys) is required for reminder webhook".to_string()))?;
 
-    // 2. Download/Prepare Attachment
+    // 3. Download/Prepare Attachment
     let (file_bytes, filename) = if req.file.starts_with("http") || req.file.starts_with("//") {
         let url = if req.file.starts_with("//") {
             format!("https:{}", req.file)
@@ -396,10 +409,10 @@ pub async fn reminder_webhook(
     let attachments = Some(vec![super::provider::Attachment {
         filename,
         content: file_bytes,
-        mime_type: "application/pdf".to_string(), // Defaulting to PDF as it's the context, or we could detect
+        mime_type: "application/pdf".to_string(),
     }]);
 
-    // 3. Select Provider
+    // 4. Select Provider
     let provider_params = ProviderParams {
         provider: Some(req.platform.clone()),
         company: req.company.clone(),
@@ -407,15 +420,15 @@ pub async fn reminder_webhook(
     
     let provider_instance: Box<dyn EmailProvider> = get_provider(&provider_params, state.client.clone());
 
-    // 4. Send Message
+    // 5. Send Message
     let content_len = req.content.len();
-    tracing::info!("Reminder webhook: receiving HTML content ({} bytes)", content_len);
+    tracing::info!("Reminder webhook: processing content ({} bytes)", content_len);
 
     let send_req = SendMessageRequest {
         to: req.recipients,
         cc: req.cc,
         subject: req.subject,
-        body: req.content, // This will be treated as HTML by the provider
+        body: req.content,
         thread_id: None,
         attachments,
     };
@@ -423,6 +436,77 @@ pub async fn reminder_webhook(
     let result: serde_json::Value = provider_instance.send_message(token, send_req).await?;
 
     Ok(Json(result).into_response())
+}
+
+/// A very pragmatic fallback parser for malformed JSON caused by unescaped HTML in the "content" field.
+/// This looks for standard keys and tries to isolate the "content" block.
+fn try_parse_malformed_reminder_json(body: &str) -> Option<ReminderWebhookRequest> {
+    // This is a simplified regex-based extractor for when JSON is broken.
+    // We look for patterns like "key": "value" or "key": ["val1", "val2"]
+    
+    let extract_field = |field: &str| -> Option<String> {
+        let pattern = format!(r#""{}"\s*:\s*"((?:[^"\\]|\\.)*?)""#, field);
+        let re = regex::Regex::new(&pattern).ok()?;
+        re.captures(body).map(|cap| cap[1].replace("\\\"", "\"").replace("\\n", "\n"))
+    };
+
+    let extract_array = |field: &str| -> Option<Vec<String>> {
+        let pattern = format!(r#""{}"\s*:\s*\[(.*?)]"#, field);
+        let re = regex::Regex::new(&pattern).ok()?;
+        let content = re.captures(body).map(|cap| cap[1].to_string())?;
+        
+        let mut results = Vec::new();
+        for item in content.split(',') {
+            let item = item.trim().trim_matches('"');
+            if !item.is_empty() {
+                results.push(item.to_string());
+            }
+        }
+        Some(results)
+    };
+
+    // Special case for content: find everything between "content": " and the next key or end
+    // Logic: Look for "content": " and take everything until the regex for the next field matches.
+    let content = if let Some(start_idx) = body.find("\"content\": \"") {
+        let after_start = &body[start_idx + 12..];
+        // We look for where the next field starts: ", "recipients": or something similar
+        // Brute force: find the first instance of ", \"(recipients|subject|file|platform|keys)"
+        let next_keys = ["recipients", "subject", "file", "identificator", "platform", "keys"];
+        let mut end_idx = after_start.len();
+        
+        for key in next_keys {
+            if let Some(pos) = after_start.find(&format!("\", \"{}\"", key)) {
+                if pos < end_idx {
+                    end_idx = pos;
+                }
+            }
+            // Also check for "], \"key\"" if content followed an array
+        }
+        
+        // If we didn't find next keys, maybe it was at the end
+        if end_idx == after_start.len() {
+             if let Some(pos) = after_start.rfind("\"}") {
+                 end_idx = pos;
+             }
+        }
+
+        Some(after_start[..end_idx].to_string())
+    } else {
+        None
+    };
+
+    Some(ReminderWebhookRequest {
+        content: content?,
+        subject: extract_field("subject").unwrap_or_default(),
+        cc: extract_array("cc"),
+        recipients: extract_array("recipients").unwrap_or_default(),
+        identificator: extract_field("identificator"),
+        file: extract_field("file").unwrap_or_default(),
+        file_name: extract_field("file_name").unwrap_or_default(),
+        platform: extract_field("platform").unwrap_or_default(),
+        keys: extract_field("keys"),
+        company: extract_field("company"),
+    })
 }
 
 pub async fn get_embed_js(
