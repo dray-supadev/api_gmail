@@ -64,7 +64,7 @@ async fn main() {
                 cors = cors.allow_origin(tower_http::cors::Any);
             } else {
                 for origin in &state.config.allowed_origins {
-                    if let Ok(value) = origin.parse() {
+                    if let Ok(value) = origin.parse::<axum::http::HeaderValue>() {
                         cors = cors.allow_origin(value);
                     }
                 }
