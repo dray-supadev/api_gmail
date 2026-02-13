@@ -425,7 +425,10 @@ impl EmailProvider for GmailProvider {
             .await?;
 
         if !res.status().is_success() {
-            return Err(AppError::GmailApi(res.error_for_status().unwrap_err()));
+            let status = res.status();
+            let error_text = res.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            tracing::error!("Gmail API send error ({}): {}", status, error_text);
+            return Err(AppError::BadGateway(format!("Gmail API Error {}: {}", status, error_text)));
         }
 
         let json: serde_json::Value = res.json().await?;

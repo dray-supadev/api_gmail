@@ -490,7 +490,13 @@ fn try_parse_malformed_reminder_json(body: &str) -> Option<ReminderWebhookReques
              }
         }
 
-        Some(after_start[..end_idx].to_string())
+        let raw_content = &after_start[..end_idx];
+        // CRITICAL: Unescape characters for malformed HTML
+        Some(raw_content
+            .replace("\\\"", "\"")
+            .replace("\\n", "\n")
+            .replace("\\r", "\r")
+            .replace("\\t", "\t"))
     } else {
         None
     };
