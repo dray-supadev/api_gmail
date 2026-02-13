@@ -24,6 +24,7 @@ async-trait = "0.1"
 html-escape = "0.2"
 lru = "0.12"
 uuid = { version = "1.7", features = ["v4"] }
+regex = "1.10"
 
 
 
