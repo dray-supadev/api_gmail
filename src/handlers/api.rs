@@ -408,12 +408,15 @@ pub async fn reminder_webhook(
     let provider_instance: Box<dyn EmailProvider> = get_provider(&provider_params, state.client.clone());
 
     // 4. Send Message
+    let content_len = req.content.len();
+    tracing::info!("Reminder webhook: receiving HTML content ({} bytes)", content_len);
+
     let send_req = SendMessageRequest {
         to: req.recipients,
         cc: req.cc,
         subject: req.subject,
-        body: req.content,
-        thread_id: None, // Reminders are usually new threads or we don't have thread context here
+        body: req.content, // This will be treated as HTML by the provider
+        thread_id: None,
         attachments,
     };
 
