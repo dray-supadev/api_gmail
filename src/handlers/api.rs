@@ -182,6 +182,7 @@ pub struct SendQuoteRequest {
     pub pdf_name: Option<String>,
     pub maildata_identificator: Option<String>,
     pub company: Option<String>,
+    pub trigger_reminder: Option<bool>,
 }
 
 pub async fn send_quote_email(
@@ -326,6 +327,98 @@ pub async fn send_quote_email(
     
     let result: serde_json::Value = provider_instance.send_message(token, send_req).await?;
     
+    // 6. Trigger reminder on Bubble if requested (only once)
+    if req.trigger_reminder.unwrap_or(false) {
+        if let Err(e) = bubble_service.send_remember(&req.quote_id, req.version.as_deref()).await {
+             tracing::error!("Failed to trigger Bubble reminder: {:?}", e);
+             // We don't fail the whole request because the email was already sent
+        }
+    }
+
+    Ok(Json(result).into_response())
+}
+
+#[derive(Deserialize)]
+pub struct ReminderWebhookRequest {
+    pub content: String,
+    pub subject: String,
+    pub cc: Option<Vec<String>>,
+    pub recipients: Vec<String>,
+    pub identificator: Option<String>,
+    pub file: String, // URL or base64
+    pub file_name: String,
+    pub platform: String,
+    pub keys: Option<String>, // Token or API Key
+    pub company: Option<String>,
+}
+
+pub async fn reminder_webhook(
+    State(state): State<AppState>,
+    Json(req): Json<ReminderWebhookRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    // 1. Get Token (from keys field or fallback to headers if needed, but keys is priority for webhooks)
+    let token = req.keys.as_deref().ok_or_else(|| AppError::BadRequest("API Key (keys) is required for reminder webhook".to_string()))?;
+
+    // 2. Download/Prepare Attachment
+    let (file_bytes, filename) = if req.file.starts_with("http") || req.file.starts_with("//") {
+        let url = if req.file.starts_with("//") {
+            format!("https:{}", req.file)
+        } else {
+            req.file.clone()
+        };
+        
+        let res = state.client.get(&url).send().await
+            .map_err(|e| AppError::BadGateway(format!("Failed to download file from URL: {}", e)))?;
+            
+        if !res.status().is_success() {
+            return Err(AppError::BadGateway(format!("Failed to download file from URL. Status: {}", res.status())));
+        }
+        
+        let bytes = res.bytes().await
+            .map_err(|e| AppError::BadGateway(format!("Failed to read file bytes: {}", e)))?
+            .to_vec();
+            
+        (bytes, req.file_name)
+    } else {
+        // Assume Base64
+        use base64::{Engine as _, engine::general_purpose::STANDARD};
+        let clean_base64 = if let Some(idx) = req.file.find(',') {
+            &req.file[idx+1..]
+        } else {
+            &req.file
+        };
+        
+        let bytes = STANDARD.decode(clean_base64.trim())
+            .map_err(|e| AppError::BadRequest(format!("Invalid file base64: {}", e)))?;
+        (bytes, req.file_name)
+    };
+
+    let attachments = Some(vec![super::provider::Attachment {
+        filename,
+        content: file_bytes,
+        mime_type: "application/pdf".to_string(), // Defaulting to PDF as it's the context, or we could detect
+    }]);
+
+    // 3. Select Provider
+    let provider_params = ProviderParams {
+        provider: Some(req.platform.clone()),
+        company: req.company.clone(),
+    };
+    
+    let provider_instance: Box<dyn EmailProvider> = get_provider(&provider_params, state.client.clone());
+
+    // 4. Send Message
+    let send_req = SendMessageRequest {
+        to: req.recipients,
+        cc: req.cc,
+        subject: req.subject,
+        body: req.content,
+        thread_id: None, // Reminders are usually new threads or we don't have thread context here
+        attachments,
+    };
+
+    let result: serde_json::Value = provider_instance.send_message(token, send_req).await?;
+
     Ok(Json(result).into_response())
 }
 

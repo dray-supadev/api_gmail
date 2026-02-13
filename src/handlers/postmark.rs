@@ -74,7 +74,7 @@ impl EmailProvider for PostmarkProvider {
         }
 
         let res = self.client.post(url)
-            .header("X-Postmark-Server-Token", &self.server_token)
+            .header("X-Postmark-Server-Token", if _token.is_empty() { &self.server_token } else { _token })
             .header("Content-Type", "application/json")
             .header("Accept", "application/json")
             .json(&body_json)

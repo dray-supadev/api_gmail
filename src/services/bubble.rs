@@ -141,9 +141,6 @@ impl BubbleService {
         pdf_export_settings: Vec<String>,
         pdf_url: String, // Changed from Option<String> + Option<Vec<u8>> to just String (URL)
     ) -> Result<String, AppError> {
-        // User Requirement 4: Dynamic version usage
-        // We use the provided version or fallback to "version-test" locally, 
-        // but the caller (JS) is expected to provide it.
         let version_path = version.unwrap_or("version-test");
         let url = format!("{}/{}/api/1.1/wf/send_quote", self.base_url, version_path);
 
@@ -190,5 +187,29 @@ impl BubbleService {
             .to_string();
 
         Ok(html_content)
+    }
+
+    pub async fn send_remember(&self, quote_id: &str, version: Option<&str>) -> Result<(), AppError> {
+        let version_path = version.unwrap_or("version-test");
+        let url = format!("{}/{}/api/1.1/wf/send_remember", self.base_url, version_path);
+
+        let payload = serde_json::json!({
+            "quote": quote_id,
+        });
+
+        let res = self.client.post(&url)
+            .bearer_auth(&self.api_token)
+            .json(&payload)
+            .send()
+            .await?;
+
+        if !res.status().is_success() {
+            let status = res.status();
+            let error_text = res.text().await.unwrap_or_default();
+            tracing::error!("Bubble Send Remember WF Error ({}): {}", status, error_text);
+            return Err(AppError::BadGateway(format!("Bubble Send Remember WF failed: {}", error_text)));
+        }
+
+        Ok(())
     }
 }

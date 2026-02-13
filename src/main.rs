@@ -47,6 +47,7 @@ async fn main() {
         .route("/api/profile", get(handlers::api::get_profile))
         .route("/api/quote/preview", post(handlers::api::preview_quote))
         .route("/api/quote/send", post(handlers::api::send_quote_email))
+        .route("/api/webhook/reminder", post(handlers::api::reminder_webhook))
         // Apply Auth Middleware to /api routes (Fix Point 5)
         .route_layer(axum::middleware::from_fn_with_state(state.clone(), middleware::auth::verify_api_key))
         // Explicitly serve embed.js
