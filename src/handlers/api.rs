@@ -329,7 +329,7 @@ pub async fn send_quote_email(
     
     // 6. Trigger reminder on Bubble if requested (only once)
     if req.trigger_reminder.unwrap_or(false) {
-        if let Err(e) = bubble_service.send_remember(&req.quote_id, req.version.as_deref()).await {
+        if let Err(e) = bubble_service.send_remember(&req.quote_id, req.version.as_deref(), Some(&req.provider)).await {
              tracing::error!("Failed to trigger Bubble reminder: {:?}", e);
              // We don't fail the whole request because the email was already sent
         }

@@ -189,12 +189,13 @@ impl BubbleService {
         Ok(html_content)
     }
 
-    pub async fn send_remember(&self, quote_id: &str, version: Option<&str>) -> Result<(), AppError> {
+    pub async fn send_remember(&self, quote_id: &str, version: Option<&str>, platform: Option<&str>) -> Result<(), AppError> {
         let version_path = version.unwrap_or("version-test");
         let url = format!("{}/{}/api/1.1/wf/send_remember", self.base_url, version_path);
 
         let payload = serde_json::json!({
             "quote": quote_id,
+            "type": platform.unwrap_or("unknown"),
         });
 
         let res = self.client.post(&url)
