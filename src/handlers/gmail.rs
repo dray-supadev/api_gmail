@@ -367,16 +367,27 @@ impl EmailProvider for GmailProvider {
     }
 
     async fn send_message(&self, token: &str, req: SendMessageRequest) -> Result<serde_json::Value, AppError> {
-        let to_header = req.to.join(", ");
+        let to_list: Vec<String> = req.to.iter()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty() && s.contains('@'))
+            .collect();
+        let to_header = to_list.join(", ");
+        
+        let cc_list: Vec<String> = req.cc.unwrap_or_default().iter()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty() && s.contains('@'))
+            .collect();
+        let cc_header = cc_list.join(", ");
+
         // Fixed Point 15: Unique boundary
         let boundary = format!("boundary_{}", uuid::Uuid::new_v4()); 
 
         let mut email_content = String::new();
-        email_content.push_str(&format!("To: {}\r\n", to_header));
-        if let Some(cc) = &req.cc {
-            if !cc.is_empty() {
-                email_content.push_str(&format!("Cc: {}\r\n", cc.join(", ")));
-            }
+        if !to_header.is_empty() {
+            email_content.push_str(&format!("To: {}\r\n", to_header));
+        }
+        if !cc_header.is_empty() {
+            email_content.push_str(&format!("Cc: {}\r\n", cc_header));
         }
         email_content.push_str(&format!("Subject: {}\r\n", req.subject));
         
@@ -386,16 +397,19 @@ impl EmailProvider for GmailProvider {
         email_content.push_str("MIME-Version: 1.0\r\n");
         email_content.push_str(&format!("Content-Type: multipart/mixed; boundary=\"{}\"\r\n\r\n", boundary));
         
+        tracing::info!("Sending Gmail: To='{}', Cc='{}', Subject='{}'", to_header, cc_header, req.subject);
+
         // HTML Part
+        use base64::{Engine as _, engine::general_purpose::STANDARD};
         email_content.push_str(&format!("--{}\r\n", boundary));
         email_content.push_str("Content-Type: text/html; charset=utf-8\r\n");
+        email_content.push_str("Content-Transfer-Encoding: base64\r\n");
         email_content.push_str("Content-Disposition: inline\r\n\r\n");
-        email_content.push_str(&req.body);
+        email_content.push_str(&STANDARD.encode(req.body.as_bytes()));
         email_content.push_str("\r\n\r\n");
 
         // Attachments
         if let Some(attachments) = &req.attachments {
-            use base64::{Engine as _, engine::general_purpose::STANDARD};
             for att in attachments {
                 email_content.push_str(&format!("--{}\r\n", boundary));
                 email_content.push_str(&format!("Content-Type: {}; name=\"{}\"\r\n", att.mime_type, att.filename));
