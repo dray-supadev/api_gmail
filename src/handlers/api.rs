@@ -446,13 +446,19 @@ fn try_parse_malformed_reminder_json(body: &str) -> Option<ReminderWebhookReques
     // We look for patterns like "key": "value" or "key": ["val1", "val2"]
     
     let extract_field = |field: &str| -> Option<String> {
-        let pattern = format!(r#""{}"\s*:\s*"((?:[^"\\]|\\.)*?)""#, field);
+        let pattern = format!(r#""{}"\s*:\s*"((?s:.*?))"(?:\s*[,}}])"#, field);
         let re = regex::Regex::new(&pattern).ok()?;
-        re.captures(body).map(|cap| cap[1].replace("\\\"", "\"").replace("\\n", "\n"))
+        re.captures(body).map(|cap| {
+            cap[1].to_string()
+                .replace("\\\"", "\"")
+                .replace("\\n", "\n")
+                .replace("\\r", "\r")
+                .replace("\\t", "\t")
+        })
     };
 
     let extract_array = |field: &str| -> Option<Vec<String>> {
-        let pattern = format!(r#""{}"\s*:\s*\[(.*?)]"#, field);
+        let pattern = format!(r#""{}"\s*:\s*\[((?s:.*?))]"#, field);
         let re = regex::Regex::new(&pattern).ok()?;
         let content = re.captures(body).map(|cap| cap[1].to_string())?;
         
@@ -502,11 +508,14 @@ fn try_parse_malformed_reminder_json(body: &str) -> Option<ReminderWebhookReques
         None
     };
 
+    let recipients = extract_array("recipients").unwrap_or_default();
+    tracing::info!("Lenient parser result: found {} recipients", recipients.len());
+
     Some(ReminderWebhookRequest {
         content: content?,
-        subject: extract_field("subject").unwrap_or_default(),
+        subject: extract_field("subject").unwrap_or_else(|| "No Subject".to_string()),
         cc: extract_array("cc"),
-        recipients: extract_array("recipients").unwrap_or_default(),
+        recipients,
         identificator: extract_field("identificator"),
         file: extract_field("file").unwrap_or_default(),
         file_name: extract_field("file_name").unwrap_or_default(),
