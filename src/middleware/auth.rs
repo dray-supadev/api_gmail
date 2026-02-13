@@ -6,10 +6,16 @@ use axum::{
 };
 use crate::state::AppState;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum AuthLevel {
+    Admin,
+    Widget,
+}
+
 pub async fn verify_api_key(
     State(state): State<AppState>,
     headers: HeaderMap,
-    request: Request,
+    mut request: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
     // Skip auth for health check
@@ -21,20 +27,26 @@ pub async fn verify_api_key(
         .get("x-api-key")
         .and_then(|value| value.to_str().ok());
 
-    let is_valid = match api_key {
+    let auth_level = match api_key {
         Some(key) => {
-            let matches_app_key = key == state.config.app_secret_key;
-            let matches_bubble_key = !state.config.bubble_api_token.is_empty() && key == state.config.bubble_api_token;
-            let matches_widget_key = !state.config.widget_api_key.is_empty() && key == state.config.widget_api_key;
-            matches_app_key || matches_bubble_key || matches_widget_key
+            if key == state.config.app_secret_key {
+                Some(AuthLevel::Admin)
+            } else if !state.config.bubble_api_token.is_empty() && key == state.config.bubble_api_token {
+                Some(AuthLevel::Admin) // Bubble token is also admin
+            } else if !state.config.widget_api_key.is_empty() && key == state.config.widget_api_key {
+                Some(AuthLevel::Widget)
+            } else {
+                None
+            }
         },
-        None => false,
+        None => None,
     };
 
-    if is_valid {
+    if let Some(level) = auth_level {
+        request.extensions_mut().insert(level);
         Ok(next.run(request).await)
     } else {
-        tracing::warn!("Unauthorized access attempt. Provided key: {:?}", api_key);
+        tracing::warn!("Unauthorized access attempt from path: {}", request.uri().path());
         let body = serde_json::json!({
             "error": "Invalid or missing x-api-key header",
             "details": "The application secret key is required for this endpoint."

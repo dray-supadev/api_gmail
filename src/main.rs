@@ -55,12 +55,22 @@ async fn main() {
         .layer(TraceLayer::new_for_http())
         .layer(tower_http::compression::CompressionLayer::new())
         // Fix Point 4: More restrictive CORS for production
-        .layer(
-            CorsLayer::new()
-                .allow_origin(tower_http::cors::Any) // Still open for now but can be restricted to specific domains later
+        .layer({
+            let mut cors = CorsLayer::new()
                 .allow_methods([axum::http::Method::GET, axum::http::Method::POST])
-                .allow_headers([axum::http::header::CONTENT_TYPE, axum::http::HeaderName::from_static("x-api-key"), axum::http::header::AUTHORIZATION])
-        )
+                .allow_headers([axum::http::header::CONTENT_TYPE, axum::http::HeaderName::from_static("x-api-key"), axum::http::header::AUTHORIZATION]);
+            
+            if state.config.allowed_origins.contains(&"*".to_string()) {
+                cors = cors.allow_origin(tower_http::cors::Any);
+            } else {
+                for origin in &state.config.allowed_origins {
+                    if let Ok(value) = origin.parse() {
+                        cors = cors.allow_origin(value);
+                    }
+                }
+            }
+            cors
+        })
         .fallback_service(
              tower_http::services::ServeDir::new("frontend/dist")
                  .not_found_service(tower_http::services::ServeFile::new("frontend/dist/index.html"))

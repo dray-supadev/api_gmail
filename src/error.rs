@@ -28,6 +28,8 @@ pub enum AppError {
     BubbleApi(reqwest::Error),
     #[error("Bad Gateway: {0}")]
     BadGateway(String),
+    #[error("Forbidden: {0}")]
+    Forbidden(String),
 }
 
 impl IntoResponse for AppError {
@@ -83,6 +85,7 @@ impl IntoResponse for AppError {
                 }
             },
             AppError::BadGateway(ref msg) => (StatusCode::BAD_GATEWAY, msg.as_str()),
+            AppError::Forbidden(ref msg) => (StatusCode::FORBIDDEN, msg.as_str()),
             _ => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
         };
 

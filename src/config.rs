@@ -6,6 +6,7 @@ pub struct Config {
     pub app_secret_key: String,
     pub bubble_api_token: String,
     pub widget_api_key: String, // Key exposed in public widget script
+    pub allowed_origins: Vec<String>,
 }
 
 impl Config {
@@ -16,20 +17,28 @@ impl Config {
             .map_err(|_| anyhow::anyhow!("APP_SECRET_KEY is required"))?;
         
         let bubble_api_token = std::env::var("BUBBLE_API_TOKEN")
-            .unwrap_or_default(); // Optional, but useful for fallback auth
+            .unwrap_or_default();
 
-        // Security: Separate key for public widget. Fallback to app_secret_key for backward compatibility,
-        // but it is HIGHLY recommended to set a separate WIDGET_API_KEY.
+        // Security: Separate key for public widget.
         let widget_api_key = std::env::var("WIDGET_API_KEY")
-            .unwrap_or_else(|_| {
-                tracing::warn!("WIDGET_API_KEY not set. Using APP_SECRET_KEY for widget. This is insecure for public widgets.");
-                app_secret_key.clone()
-            });
+            .map_err(|_| anyhow::anyhow!("WIDGET_API_KEY is required for security. Set it to a different value than APP_SECRET_KEY."))?;
+
+        if widget_api_key == app_secret_key {
+             tracing::error!("CRITICAL SECURITY RISK: WIDGET_API_KEY is the same as APP_SECRET_KEY. Public widget will expose admin access!");
+        }
+
+        let allowed_origins = std::env::var("ALLOWED_ORIGINS")
+            .unwrap_or_else(|_| "*".to_string())
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
 
         Ok(Self {
             app_secret_key,
             bubble_api_token,
             widget_api_key,
+            allowed_origins,
         })
     }
 }

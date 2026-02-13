@@ -1,7 +1,7 @@
-use axum::{
     extract::{Path, Query, Json, State},
     http::HeaderMap,
     response::{IntoResponse, Response},
+    Extension,
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -11,6 +11,7 @@ use crate::state::AppState;
 use super::provider::{EmailProvider, ListParams, SendMessageRequest, BatchModifyRequest};
 use super::gmail::GmailProvider;
 use super::outlook::OutlookProvider;
+use crate::middleware::auth::AuthLevel;
 use crate::handlers::postmark::PostmarkProvider;
 use crate::services::bubble::BubbleService;
 
@@ -91,10 +92,14 @@ pub async fn get_message(
 
 pub async fn send_message(
     State(state): State<AppState>,
+    Extension(auth_level): Extension<AuthLevel>,
     headers: HeaderMap,
     Query(provider_params): Query<ProviderParams>,
     Json(payload): Json<SendMessageRequest>,
 ) -> Result<Response, AppError> {
+    if auth_level != AuthLevel::Admin {
+        return Err(AppError::Forbidden("This endpoint requires administrator privileges".to_string()));
+    }
     let token = get_token(&headers)?;
     let provider = get_provider(&provider_params, state.client.clone());
     
@@ -116,10 +121,14 @@ pub async fn list_labels(
 
 pub async fn batch_modify_labels(
     State(state): State<AppState>,
+    Extension(auth_level): Extension<AuthLevel>,
     headers: HeaderMap,
     Query(provider_params): Query<ProviderParams>,
     Json(payload): Json<BatchModifyRequest>,
 ) -> Result<Response, AppError> {
+    if auth_level != AuthLevel::Admin {
+        return Err(AppError::Forbidden("This endpoint requires administrator privileges".to_string()));
+    }
     let token = get_token(&headers)?;
     let provider = get_provider(&provider_params, state.client.clone());
     
@@ -188,9 +197,13 @@ pub struct SendQuoteRequest {
 
 pub async fn send_quote_email(
     State(state): State<AppState>,
+    Extension(auth_level): Extension<AuthLevel>,
     headers: HeaderMap,
     Json(req): Json<SendQuoteRequest>,
 ) -> Result<impl IntoResponse, AppError> {
+    if auth_level != AuthLevel::Admin {
+        return Err(AppError::Forbidden("This endpoint requires administrator privileges".to_string()));
+    }
     let token = get_token(&headers)?;
     
     // 1. Setup Services
@@ -355,8 +368,12 @@ pub struct ReminderWebhookRequest {
 
 pub async fn reminder_webhook(
     State(state): State<AppState>,
+    Extension(auth_level): Extension<AuthLevel>,
     body: String,
 ) -> Result<impl IntoResponse, AppError> {
+    if auth_level != AuthLevel::Admin {
+        return Err(AppError::Forbidden("This endpoint requires administrator privileges".to_string()));
+    }
     // 1. Try standard JSON parsing first
     let req: ReminderWebhookRequest = match serde_json::from_str(&body) {
         Ok(r) => r,
