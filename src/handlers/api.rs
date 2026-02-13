@@ -447,7 +447,7 @@ fn try_parse_malformed_reminder_json(body: &str) -> Option<ReminderWebhookReques
     
     let extract_field = |field: &str| -> Option<String> {
         let pattern = format!(r#""{}"\s*:\s*"((?s:.*?))"(?:\s*[,}}])"#, field);
-        let re = regex::Regex::new(&pattern).ok()?;
+        let re = Regex::new(&pattern).ok()?;
         re.captures(body).map(|cap| {
             cap[1].to_string()
                 .replace("\\\"", "\"")
@@ -482,12 +482,15 @@ fn try_parse_malformed_reminder_json(body: &str) -> Option<ReminderWebhookReques
         let mut end_idx = after_start.len();
         
         for key in next_keys {
-            if let Some(pos) = after_start.find(&format!("\", \"{}\"", key)) {
-                if pos < end_idx {
-                    end_idx = pos;
+            // Updated pattern to look for anything that looks like a next key: ", "key" or ", "key or \n"key"
+            let next_key_pattern = format!(r#""\s*,\s*"{}"\s*:"#, key);
+            if let Ok(re) = Regex::new(&next_key_pattern) {
+                if let Some(m) = re.find(after_start) {
+                    if m.start() < end_idx {
+                        end_idx = m.start();
+                    }
                 }
             }
-            // Also check for "], \"key\"" if content followed an array
         }
         
         // If we didn't find next keys, maybe it was at the end
@@ -503,7 +506,10 @@ fn try_parse_malformed_reminder_json(body: &str) -> Option<ReminderWebhookReques
             .replace("\\\"", "\"")
             .replace("\\n", "\n")
             .replace("\\r", "\r")
-            .replace("\\t", "\t"))
+            .replace("\\t", "\t")
+            .trim_end_matches(',') // Remove trailing comma if captured
+            .trim_end_matches('"') // Remove trailing quote
+            .to_string())
     } else {
         None
     };
